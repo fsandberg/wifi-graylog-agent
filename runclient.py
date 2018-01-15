@@ -58,7 +58,7 @@ def getClientStatus(OS):
 
         for iname in CWInterface.interfaceNames():
             interface = CWInterface.interfaceWithName_(iname)
-            clientStatus['GMT'] = time.strftime('%Y-%m-%d %H:%m:%S', time.gmtime())
+            clientStatus['TIMESTAMP'] = time.strftime('%Y-%m-%d %H:%m:%S', time.gmtime())
             clientStatus['BSSID'] = str(interface.bssid())
             clientStatus['SSID'] = str(interface.ssid())
             clientStatus['CHANNEL'] = str(interface.channel())
@@ -102,7 +102,7 @@ def getClientStatus(OS):
 initLog()
 
 
-for steps in range(10):
+while True:
     status = getClientStatus(platform.system())
     writeLog(status)
     time.sleep(1)
