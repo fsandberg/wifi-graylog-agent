@@ -97,7 +97,7 @@ def getClientStatus(OS):
     clientStatus['_REMOTEHOST'] = REMOTEHOST
     clientStatus['_REMOTEPORT'] = str(REMOTEPORT)
     clientStatus['_TIMESTAMP'] = utcnow().isoformat()
-    clientStatus['_EPOCH'] = dp.parse(clientStatus['_TIMESTAMP']).strftime('%s')
+    clientStatus['_EPOCH'] = int(dp.parse(clientStatus['_TIMESTAMP']).strftime('%s'))
 
     if OS == 'Darwin':
         import objc
@@ -110,8 +110,8 @@ def getClientStatus(OS):
             interface = CWInterface.interfaceWithName_(iname)
             clientStatus['_BSSID'] = str(interface.bssid())
             clientStatus['_SSID'] = str(interface.ssid())
-            clientStatus['_CHANNEL'] = str(interface.channel())
-            clientStatus['_RSSI'] = str(interface.rssi())
+            clientStatus['_CHANNEL'] = interface.channel()
+            clientStatus['_RSSI'] = interface.rssi()
             clientStatus['_TRANSMITRATE'] = interface.transmitRate()
 
             if interface.bssid() == None:
@@ -123,7 +123,7 @@ def getClientStatus(OS):
                 # PREVIOUS BSSID EMPTY - FIRST RUN
                 prevBSSID = str(interface.bssid())
                 clientStatus['_ROAM'] = 'FALSE'
-                clientStatus['_LAST_BSSID'] = 'CONNECTED'
+                clientStatus['_LAST_BSSID'] = '_INITIAL_CONNECT_'
             elif interface.bssid() == None:
                 # DISCONNECTED, KEEP LAST BSSID
                 clientStatus['_ROAM'] = 'FALSE'
@@ -157,7 +157,4 @@ while True:
     # GET STATUS BASED ON OS
     status = getClientStatus(platform.system())
     writeLog(status)
-    jsonarray = json.dumps(status)
-
-
     time.sleep(1)
