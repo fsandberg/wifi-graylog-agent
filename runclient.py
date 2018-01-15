@@ -1,14 +1,16 @@
 from tcpping import tcpping
 import platform
+import socket
+import uuid
+import re
 import time
-import datetime
 
 # DECLARE CONSTANTS & VARIABLES
 
 LOGFILE = 'buffered.log'
-HOSTNAME = 'www.google.se'
-PORT = 80
-TIMEOUT = 0.2
+REMOTEHOST = 'www.google.se'
+REMOTEPORT = 80
+TIMEOUT = 0.3
 
 global prevBSSID
 prevBSSID = ''
@@ -46,9 +48,32 @@ def TCPPing(hostName, tcpPort, timeOut):
 
     return clientConnection
 
+def getIP():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
 def getClientStatus(OS):
     global prevBSSID
     clientStatus = {}
+
+    LOCALHOSTNAME = socket.gethostname()
+    LOCALMAC = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+    LOCALIP = getIP()
+
+    clientStatus['LOCALMAC'] = LOCALMAC
+    clientStatus['LOCALHOSTNAME'] = LOCALHOSTNAME
+    clientStatus['LOCALIP'] = LOCALIP
+    clientStatus['REMOTEHOST'] = REMOTEHOST
+    clientStatus['REMOTEPORT'] = str(REMOTEPORT)
+
     if OS == 'Darwin':
         import objc
 
@@ -87,20 +112,15 @@ def getClientStatus(OS):
         print('Windows not implemented yet')
 
     else:
-        print('Unknown OS!')
+        print('Unsupported OS!')
 
-
-    clientConnectivity = TCPPing(HOSTNAME,PORT,TIMEOUT)
+    clientConnectivity = TCPPing(REMOTEHOST, REMOTEPORT, TIMEOUT)
     clientStatus['PACKETLOSS'] = clientConnectivity['PACKETLOSS']
     clientStatus['RTT'] = clientConnectivity['RTT']
 
     return clientStatus
 
-
-
-
 initLog()
-
 
 while True:
     status = getClientStatus(platform.system())
