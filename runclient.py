@@ -2,6 +2,7 @@ from tcpping import tcpping
 import platform
 import socket
 import uuid
+import pytz
 import re
 import time
 import datetime
@@ -61,6 +62,9 @@ def getIP():
         s.close()
     return IP
 
+def utcnow():
+    return datetime.datetime.now(tz=pytz.utc)
+
 def getClientStatus(OS):
     global prevBSSID
     clientStatus = {}
@@ -84,7 +88,7 @@ def getClientStatus(OS):
 
         for iname in CWInterface.interfaceNames():
             interface = CWInterface.interfaceWithName_(iname)
-            clientStatus['TIMESTAMP'] = str(datetime.datetime.utcnow())
+            clientStatus['TIMESTAMP'] = utcnow().isoformat()
             clientStatus['BSSID'] = str(interface.bssid())
             clientStatus['SSID'] = str(interface.ssid())
             clientStatus['CHANNEL'] = str(interface.channel())
