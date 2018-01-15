@@ -54,7 +54,7 @@ def getIP():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # doesn't even have to be reachable
-        s.connect(('10.255.255.255', 1))
+        s.connect((REMOTEHOST, 1))
         IP = s.getsockname()[0]
     except:
         IP = '127.0.0.1'
@@ -70,14 +70,16 @@ def getClientStatus(OS):
     clientStatus = {}
 
     LOCALHOSTNAME = socket.gethostname()
-    LOCALMAC = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
     LOCALIP = getIP()
+    LOCALMAC = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+
 
     clientStatus['LOCALMAC'] = LOCALMAC
     clientStatus['LOCALHOSTNAME'] = LOCALHOSTNAME
     clientStatus['LOCALIP'] = LOCALIP
     clientStatus['REMOTEHOST'] = REMOTEHOST
     clientStatus['REMOTEPORT'] = str(REMOTEPORT)
+    clientStatus['TIMESTAMP'] = utcnow().isoformat()
 
     if OS == 'Darwin':
         import objc
@@ -88,7 +90,6 @@ def getClientStatus(OS):
 
         for iname in CWInterface.interfaceNames():
             interface = CWInterface.interfaceWithName_(iname)
-            clientStatus['TIMESTAMP'] = utcnow().isoformat()
             clientStatus['BSSID'] = str(interface.bssid())
             clientStatus['SSID'] = str(interface.ssid())
             clientStatus['CHANNEL'] = str(interface.channel())
@@ -137,5 +138,6 @@ initLog()
 while True:
     # GET STATUS BASED ON OS
     status = getClientStatus(platform.system())
+
     writeLog(status)
     time.sleep(1)
