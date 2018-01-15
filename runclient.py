@@ -36,6 +36,7 @@ def initLog():
 
 def writeLog(logData):
     logFile = open(LOGFILE, 'a')
+    logData = json.dumps(logData)
     logFile.write(str(logData))
     logFile.write('\n')
     logFile.close()
@@ -156,7 +157,7 @@ while True:
     # GET STATUS BASED ON OS
     status = getClientStatus(platform.system())
     writeLog(status)
-
     jsonarray = json.dumps(status)
-    print(jsonarray)
+
+
     time.sleep(1)
