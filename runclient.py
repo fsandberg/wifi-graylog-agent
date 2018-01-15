@@ -4,10 +4,11 @@ import socket
 import uuid
 import re
 import time
+import datetime
 
 # DECLARE CONSTANTS & VARIABLES
 
-LOGFILE = 'buffered.log'
+LOGFILE = 'logbuffer.tmp'
 REMOTEHOST = 'www.google.se'
 REMOTEPORT = 80
 TIMEOUT = 0.3
@@ -83,20 +84,27 @@ def getClientStatus(OS):
 
         for iname in CWInterface.interfaceNames():
             interface = CWInterface.interfaceWithName_(iname)
-            clientStatus['TIMESTAMP'] = time.strftime('%Y-%m-%d %H:%m:%S', time.gmtime())
+            clientStatus['TIMESTAMP'] = str(datetime.datetime.utcnow())
             clientStatus['BSSID'] = str(interface.bssid())
             clientStatus['SSID'] = str(interface.ssid())
             clientStatus['CHANNEL'] = str(interface.channel())
             clientStatus['RSSI'] = str(interface.rssi())
             clientStatus['TRANSMITRATE'] = interface.transmitRate()
 
+            if interface.bssid() == None:
+                clientStatus['CONNECTED'] = 'FALSE'
+            else:
+                clientStatus['CONNECTED'] = 'TRUE'
 
             if prevBSSID == '':
                 # PREVIOUS BSSID EMPTY - FIRST RUN
                 prevBSSID = str(interface.bssid())
                 clientStatus['ROAM'] = 'FALSE'
                 clientStatus['LAST_BSSID'] = 'CONNECTED'
-
+            elif interface.bssid() == None:
+                # DISCONNECTED, KEEP LAST BSSID
+                clientStatus['ROAM'] = 'FALSE'
+                clientStatus['LAST_BSSID'] = prevBSSID
             elif prevBSSID == interface.bssid():
                 # BSSID IS SAME AS LAST RUN - NO ROAM
                 clientStatus['ROAM'] = 'FALSE'
@@ -123,6 +131,7 @@ def getClientStatus(OS):
 initLog()
 
 while True:
+    # GET STATUS BASED ON OS
     status = getClientStatus(platform.system())
     writeLog(status)
     time.sleep(1)
