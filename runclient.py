@@ -1,4 +1,5 @@
 from tcpping import tcpping
+from pygelf import GelfTcpHandler
 import platform
 import socket
 import uuid
@@ -6,6 +7,10 @@ import pytz
 import re
 import time
 import datetime
+import logging
+import json
+import dateutil.parser as dp
+
 
 # DECLARE CONSTANTS & VARIABLES
 
@@ -14,8 +19,12 @@ REMOTEHOST = 'www.google.se'
 REMOTEPORT = 80
 TIMEOUT = 0.3
 
+LOGHOST = '10.20.200.157'
+LOGTCP = '9923'
+
 global prevBSSID
 prevBSSID = ''
+
 
 
 # DECLARE FUNCTIONS
@@ -28,9 +37,16 @@ def initLog():
 def writeLog(logData):
     logFile = open(LOGFILE, 'a')
     logFile.write(str(logData))
-    print(logData)
     logFile.write('\n')
     logFile.close()
+    return
+
+def sendLog(logData):
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger()
+    logger.addHandler(GelfTcpHandler(host=LOGHOST, port=LOGTCP))
+
+
     return
 
 def TCPPing(hostName, tcpPort, timeOut):
@@ -40,13 +56,13 @@ def TCPPing(hostName, tcpPort, timeOut):
     clientConnection = {}
 
     if sendTCP:
-        clientConnection['PACKETLOSS'] = 0
+        clientConnection['_PACKETLOSS'] = 0
         timeDiff = (time.time() - startTime) * 1000
         timeDiff = float("{0:.2f}".format(timeDiff))
-        clientConnection['RTT'] = timeDiff
+        clientConnection['_RTT'] = timeDiff
     else:
-        clientConnection['PACKETLOSS'] = 1
-        clientConnection['RTT'] = -1.00
+        clientConnection['_PACKETLOSS'] = 1
+        clientConnection['_RTT'] = -1.00
 
     return clientConnection
 
@@ -74,12 +90,13 @@ def getClientStatus(OS):
     LOCALMAC = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
 
 
-    clientStatus['LOCALMAC'] = LOCALMAC
-    clientStatus['LOCALHOSTNAME'] = LOCALHOSTNAME
-    clientStatus['LOCALIP'] = LOCALIP
-    clientStatus['REMOTEHOST'] = REMOTEHOST
-    clientStatus['REMOTEPORT'] = str(REMOTEPORT)
-    clientStatus['TIMESTAMP'] = utcnow().isoformat()
+    clientStatus['_LOCALMAC'] = LOCALMAC
+    clientStatus['_LOCALHOSTNAME'] = LOCALHOSTNAME
+    clientStatus['_LOCALIP'] = LOCALIP
+    clientStatus['_REMOTEHOST'] = REMOTEHOST
+    clientStatus['_REMOTEPORT'] = str(REMOTEPORT)
+    clientStatus['_TIMESTAMP'] = utcnow().isoformat()
+    clientStatus['_EPOCH'] = dp.parse(clientStatus['_TIMESTAMP']).strftime('%s')
 
     if OS == 'Darwin':
         import objc
@@ -90,34 +107,34 @@ def getClientStatus(OS):
 
         for iname in CWInterface.interfaceNames():
             interface = CWInterface.interfaceWithName_(iname)
-            clientStatus['BSSID'] = str(interface.bssid())
-            clientStatus['SSID'] = str(interface.ssid())
-            clientStatus['CHANNEL'] = str(interface.channel())
-            clientStatus['RSSI'] = str(interface.rssi())
-            clientStatus['TRANSMITRATE'] = interface.transmitRate()
+            clientStatus['_BSSID'] = str(interface.bssid())
+            clientStatus['_SSID'] = str(interface.ssid())
+            clientStatus['_CHANNEL'] = str(interface.channel())
+            clientStatus['_RSSI'] = str(interface.rssi())
+            clientStatus['_TRANSMITRATE'] = interface.transmitRate()
 
             if interface.bssid() == None:
-                clientStatus['CONNECTED'] = 'FALSE'
+                clientStatus['_CONNECTED'] = 'FALSE'
             else:
-                clientStatus['CONNECTED'] = 'TRUE'
+                clientStatus['_CONNECTED'] = 'TRUE'
 
             if prevBSSID == '':
                 # PREVIOUS BSSID EMPTY - FIRST RUN
                 prevBSSID = str(interface.bssid())
-                clientStatus['ROAM'] = 'FALSE'
-                clientStatus['LAST_BSSID'] = 'CONNECTED'
+                clientStatus['_ROAM'] = 'FALSE'
+                clientStatus['_LAST_BSSID'] = 'CONNECTED'
             elif interface.bssid() == None:
                 # DISCONNECTED, KEEP LAST BSSID
-                clientStatus['ROAM'] = 'FALSE'
-                clientStatus['LAST_BSSID'] = prevBSSID
+                clientStatus['_ROAM'] = 'FALSE'
+                clientStatus['_LAST_BSSID'] = prevBSSID
             elif prevBSSID == interface.bssid():
                 # BSSID IS SAME AS LAST RUN - NO ROAM
-                clientStatus['ROAM'] = 'FALSE'
-                clientStatus['LAST_BSSID'] = str(interface.bssid())
+                clientStatus['_ROAM'] = 'FALSE'
+                clientStatus['_LAST_BSSID'] = str(interface.bssid())
             else:
                 # BSSID IS DIFFERENT FROM LAST RUN - CLIENT ROAM
-                clientStatus['ROAM'] = 'TRUE'
-                clientStatus['LAST_BSSID'] = prevBSSID
+                clientStatus['_ROAM'] = 'TRUE'
+                clientStatus['_LAST_BSSID'] = prevBSSID
                 prevBSSID = str(interface.bssid())
 
 
@@ -128,8 +145,8 @@ def getClientStatus(OS):
         print('Unsupported OS!')
 
     clientConnectivity = TCPPing(REMOTEHOST, REMOTEPORT, TIMEOUT)
-    clientStatus['PACKETLOSS'] = clientConnectivity['PACKETLOSS']
-    clientStatus['RTT'] = clientConnectivity['RTT']
+    clientStatus['_PACKETLOSS'] = clientConnectivity['_PACKETLOSS']
+    clientStatus['_RTT'] = clientConnectivity['_RTT']
 
     return clientStatus
 
@@ -138,6 +155,8 @@ initLog()
 while True:
     # GET STATUS BASED ON OS
     status = getClientStatus(platform.system())
-
     writeLog(status)
+
+    jsonarray = json.dumps(status)
+    print(jsonarray)
     time.sleep(1)
