@@ -9,7 +9,6 @@ import time
 import datetime
 import logging
 import json
-import dateutil.parser as dp
 
 
 # DECLARE CONSTANTS & VARIABLES
@@ -97,7 +96,8 @@ def getClientStatus(OS):
     clientStatus['_REMOTEHOST'] = REMOTEHOST
     clientStatus['_REMOTEPORT'] = str(REMOTEPORT)
     clientStatus['_TIMESTAMP'] = utcnow().isoformat()
-    clientStatus['_EPOCH'] = int(dp.parse(clientStatus['_TIMESTAMP']).strftime('%s'))
+    #clientStatus['_EPOCH'] = int(dp.parse(clientStatus['_TIMESTAMP']).strftime('%s'))
+    clientStatus['_EPOCH'] = utcnow().timestamp()
 
     if OS == 'Darwin':
         import objc
@@ -157,4 +157,5 @@ while True:
     # GET STATUS BASED ON OS
     status = getClientStatus(platform.system())
     writeLog(status)
+    print(status)
     time.sleep(1)
