@@ -34,7 +34,7 @@ while True:
     # Check roaming and last BSSID
     if status['_LAST_BSSID'] == '':
         # First run, initiate parameter
-        status['_LAST_BSSID'] == wifi.get_bssid()
+        status['_LAST_BSSID'] = wifi.get_bssid()
         status['_ROAM'] = 'FALSE'
     elif status['_BSSID'] == 'None':
         # Disconnected, keep last known BSSID
