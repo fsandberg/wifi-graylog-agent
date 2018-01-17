@@ -1,12 +1,16 @@
 from osxwifi import wifistatus
 from connectivity import connectivity
+from logging import logdata
 import time
 import datetime
-import fileinput
+
+
+
 
 
 wifi = wifistatus()
 connection = connectivity()
+logdata = logdata()
 
 remoteHost = '192.168.23.1'
 remotePort = 22
@@ -43,12 +47,14 @@ def printlog(statusdict, sleeptimer):
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('RSSI:', status['_RSSI'], '', 'ROAM:', status['_ROAM']))
     print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('LAST ROAM RSSI:', status['_LAST_ROAM'], '', 'TX SPEED:', status['_TRANSMITRATE']))
     if status['_PACKETLOSS'] == 'TRUE':
+        status['_LOSS_COUNT'] = 1
         sumPacketLost += 1
         if sumPacketLost > maxPacketLost:
             maxPacketLost = sumPacketLost
         print('{:<15} {:>20} {:>10} {:<15} {:>23} {:>3}'.format('CHANNEL:', status['_CHANNEL'], '', 'PACKET LOST:\033[91m', status['_PACKETLOSS'], '\033[0m'))
         print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format('RTT:', status['_RTT'], '', 'MAX LOST LAST 24H:', maxPacketLost))
     else:
+        status['_LOSS_COUNT'] = 0
         sumPacketLost = 0
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CHANNEL:', status['_CHANNEL'], '', 'PACKET LOST:', status['_PACKETLOSS']))
         print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format('RTT:', status['_RTT'], '', 'MAX LOST LAST 24H:', maxPacketLost))
@@ -61,20 +67,12 @@ def printlog(statusdict, sleeptimer):
 
     return
 
-def sendlog(logfile):
-    with open(logfile, 'r') as readlog:
-        data = readlog.read().splitlines(True)
 
-    # if connection to logserver is successful, run code below
-    with open(logfile, 'w') as writelog:
-        writelog.writelines(data[1:])
-
-    return
 
 while True:
     status['_BSSID'] = str(wifi.get_bssid())
     status['_SSID'] = str(wifi.get_ssid())
-    status['_NOISE'] = str(wifi.get_aggregatenoise())
+    status['_NOISE'] = wifi.get_aggregatenoise()
     status['_RSSI'] = wifi.get_rssi()
     status['_CHANNEL'] = wifi.get_channel()
     status['_TRANSMITRATE'] = wifi.get_transmitrate()
@@ -99,6 +97,7 @@ while True:
         status['_LAST_BSSID'] = status['_BSSID']
         status['_LAST_ROAM'] = status['_RSSI']
 
-    printlog(status, 1)
+    printlog(status, 0.1)
+    logdata.write_log('logbuffer.tmp', status)
 
     #sendlog('logbuffer.tmp')
