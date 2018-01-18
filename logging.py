@@ -66,7 +66,7 @@ class logdata(object):
         print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('BSSID:', status['_BSSID'], '', 'LAST BSSID:', status['_LAST_BSSID']))
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('SSID:', status['_SSID'], '', 'NOISE:', status['_NOISE']))
         if status['_ROAM'] == 'TRUE':
-            print('{:<15} {:>20} {:>10} {:<15} {:>25} {:>3}'.format('RSSI:', status['_RSSI'], '', 'ROAM:\033[91m', status['_ROAM'], '\033[0m'))
+            print('{:<15} {:>20} {:>10} {:<15} {:>25} {:>3}'.format('RSSI:', status['_RSSI'], '', 'ROAM:\033[92m', status['_ROAM'], '\033[0m'))
         else:
             print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('RSSI:', status['_RSSI'], '', 'ROAM:', status['_ROAM']))
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('LAST ROAM RSSI:', status['_LAST_ROAM'], '', 'TX SPEED:', status['_TRANSMITRATE']))
