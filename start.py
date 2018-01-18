@@ -21,7 +21,8 @@ roamingLimit = -10
 # set initial values
 status = {}
 status['_LAST_BSSID'] = ''
-status['_LAST_ROAM'] = '0'
+status['_LAST_ROAM'] = '--'
+lastRoamValue = 0
 
 logdata.set_startday()
 
@@ -46,17 +47,20 @@ try:
             # First run, initiate parameter
             status['_LAST_BSSID'] = wifi.get_bssid()
             status['_ROAM'] = 'FALSE'
+            lastRoamValue = status['_RSSI']
         elif status['_BSSID'] == 'None':
             # Disconnected, keep last known BSSID
             status['_ROAM'] = 'FALSE'
+            lastRoamValue = status['_RSSI']
         elif status['_LAST_BSSID'] == status['_BSSID']:
             # Same BSSID as before, no roaming
             status['_ROAM'] = 'FALSE'
+            lastRoamValue = status['_RSSI']
         else:
             # BSSID does not match previous, client has roamed
             status['_ROAM'] = 'TRUE'
             status['_LAST_BSSID'] = status['_BSSID']
-            status['_LAST_ROAM'] = status['_RSSI']
+            status['_LAST_ROAM'] = lastRoamValue
 
         logdata.print_log(status, sleepTimer)
 
