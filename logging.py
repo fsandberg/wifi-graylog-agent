@@ -70,6 +70,7 @@ class logdata(object):
         else:
             print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('RSSI:', status['_RSSI'], '', 'ROAM:', status['_ROAM']))
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('LAST ROAM AT:', status['_LAST_ROAM_AT'], '', 'TX SPEED:', status['_TRANSMITRATE']))
+        print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('LAST ROAM TO:', status['_LAST_ROAM_TO'], '', 'TX SPEED:', status['_TRANSMITRATE']))
         if status['_PACKETLOSS'] == 'TRUE':
             status['_LOSS_COUNT'] = 1
             sumPacketLost += 1

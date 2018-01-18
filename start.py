@@ -22,6 +22,7 @@ roamingLimit = -10
 status = {}
 status['_LAST_BSSID'] = ''
 status['_LAST_ROAM_AT'] = ''
+status['_LAST_ROAM_TO'] = '--'
 lastRoamValue = 0
 lastBSSIValue = ''
 logdata.set_startday()
@@ -45,7 +46,6 @@ try:
         # Check roaming and last BSSID
         if lastBSSIValue == '':
             # First run, initiate parameter
-            #status['_LAST_BSSID'] = wifi.get_bssid()
 
             status['_ROAM'] = 'FALSE'
             status['_LAST_BSSID'] = '--'
@@ -70,6 +70,7 @@ try:
             status['_ROAM'] = 'TRUE'
             status['_LAST_BSSID'] = lastBSSIValue
             status['_LAST_ROAM_AT'] = lastRoamValue
+            status['_LAST_ROAM_TO'] = status['_RSSID']
             # Reset BSSID and RSSI
             lastBSSIValue = status['_BSSID']
             lastRoamValue = status['_RSSI']
