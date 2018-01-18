@@ -9,9 +9,9 @@ logdata = logdata()
 logToServer = True
 
 sleepTimer = 0.5  # Time in s between logging cycles
-remoteHost = '192.168.23.1'
-remotePort = 22
-timeout = 2  # Timeout in ms
+remoteHost = 'www.google.se'
+remotePort = 80
+timeout = 100  # Timeout in ms
 
 timeout = float(timeout)/1000
 
