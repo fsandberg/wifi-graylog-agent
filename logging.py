@@ -2,6 +2,7 @@
 import json
 import datetime
 import time
+import pytz
 
 class logdata(object):
     ''' Check connection'''
@@ -25,6 +26,16 @@ class logdata(object):
             appendlog.writelines('\n')
 
         return
+
+    def get_timestamp(self):
+        returnValue = {}
+        returnValue['_UTC'] = datetime.datetime.now(tz=pytz.utc)
+        returnValue['_EPOCH'] = returnValue['_UTC'].timestamp()
+
+        return returnValue
+
+    def get_epoch(self, timestamp):
+        return get_timestamp.timestamp()
 
     def set_startday(self):
         global startDay
@@ -51,7 +62,7 @@ class logdata(object):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         if today != logdata.get_startday(self):
             maxPacketLost = 0
-
+        print(status['_TIMESTAMP'] + '\n')
         print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('BSSID:', status['_BSSID'], '', 'LAST BSSID:', status['_LAST_BSSID']))
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('SSID:', status['_SSID'], '', 'NOISE:', status['_NOISE']))
         if status['_ROAM'] == 'TRUE':

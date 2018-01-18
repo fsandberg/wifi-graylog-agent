@@ -11,49 +11,58 @@ logToServer = True
 sleepTimer = 0.5  # Time in s between logging cycles
 remoteHost = 'www.google.se'
 remotePort = 80
-timeout = 100  # Timeout in ms
+timeout = 200  # Timeout in ms
 
 timeout = float(timeout)/1000
 
 clientMAC = wifi.get_hardwareaddress()
 roamingLimit = -10
 
-# Initiate status dictionary and set 'first run' parameters
+# set initial values
 status = {}
 status['_LAST_BSSID'] = ''
 status['_LAST_ROAM'] = '0'
 
 logdata.set_startday()
 
-while True:
-    status['_BSSID'] = str(wifi.get_bssid())
-    status['_SSID'] = str(wifi.get_ssid())
-    status['_NOISE'] = wifi.get_aggregatenoise()
-    status['_RSSI'] = wifi.get_rssi()
-    status['_CHANNEL'] = wifi.get_channel()
-    status['_TRANSMITRATE'] = wifi.get_transmitrate()
-    connectionStatus = connection.get_connection(remoteHost, remotePort, timeout)
-    status['_PACKETLOSS'] = connectionStatus['_PACKETLOSS']
-    status['_RTT'] = connectionStatus['_RTT']
+try:
 
-    # Check roaming and last BSSID
-    if status['_LAST_BSSID'] == '':
-        # First run, initiate parameter
-        status['_LAST_BSSID'] = wifi.get_bssid()
-        status['_ROAM'] = 'FALSE'
-    elif status['_BSSID'] == 'None':
-        # Disconnected, keep last known BSSID
-        status['_ROAM'] = 'FALSE'
-    elif status['_LAST_BSSID'] == status['_BSSID']:
-        # Same BSSID as before, no roaming
-        status['_ROAM'] = 'FALSE'
-    else:
-        # BSSID does not match previous, client has roamed
-        status['_ROAM'] = 'TRUE'
-        status['_LAST_BSSID'] = status['_BSSID']
-        status['_LAST_ROAM'] = status['_RSSI']
+    while True:
+        timestamp = logdata.get_timestamp()
+        status['_TIMESTAMP'] = timestamp['_UTC'].isoformat()
+        status['_EPOCH'] = timestamp['_EPOCH']
+        status['_BSSID'] = str(wifi.get_bssid())
+        status['_SSID'] = str(wifi.get_ssid())
+        status['_NOISE'] = wifi.get_aggregatenoise()
+        status['_RSSI'] = wifi.get_rssi()
+        status['_CHANNEL'] = wifi.get_channel()
+        status['_TRANSMITRATE'] = wifi.get_transmitrate()
+        connectionStatus = connection.get_connection(remoteHost, remotePort, timeout)
+        status['_PACKETLOSS'] = connectionStatus['_PACKETLOSS']
+        status['_RTT'] = connectionStatus['_RTT']
 
-    logdata.print_log(status, sleepTimer)
+        # Check roaming and last BSSID
+        if status['_LAST_BSSID'] == '':
+            # First run, initiate parameter
+            status['_LAST_BSSID'] = wifi.get_bssid()
+            status['_ROAM'] = 'FALSE'
+        elif status['_BSSID'] == 'None':
+            # Disconnected, keep last known BSSID
+            status['_ROAM'] = 'FALSE'
+        elif status['_LAST_BSSID'] == status['_BSSID']:
+            # Same BSSID as before, no roaming
+            status['_ROAM'] = 'FALSE'
+        else:
+            # BSSID does not match previous, client has roamed
+            status['_ROAM'] = 'TRUE'
+            status['_LAST_BSSID'] = status['_BSSID']
+            status['_LAST_ROAM'] = status['_RSSI']
 
-    if logToServer:
-        logdata.write_log('logbuffer.tmp', status)
+        logdata.print_log(status, sleepTimer)
+
+        if logToServer:
+            logdata.write_log('logbuffer.tmp', status)
+
+except KeyboardInterrupt:
+        print('\nUser interrupted process with CTRL-C\n')
+
