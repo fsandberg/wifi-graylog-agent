@@ -1,17 +1,21 @@
 from osxwifi import wifistatus
 from connectivity import connectivity
-from logging import *
+from logdata import *
+from sendgraylog import sendgraylog
 
 wifi = wifistatus()
 connection = connectivity()
 logdata = logdata()
+sendgraylog = sendgraylog()
 
-logToServer = True
+logToServer = False
 
-sleepTimer = 0.5  # Time in s between logging cycles
+sleepTimer = 1  # Time in s between logging cycles
 remoteHost = 'www.google.se'
 remotePort = 80
 timeout = 200  # Timeout in ms
+logHost = '10.20.200.157'
+logPort = '5045'
 
 timeout = float(timeout)/1000
 
@@ -20,9 +24,10 @@ roamingLimit = -10
 
 # set initial values
 status = {}
-status['_LAST_BSSID'] = ''
-status['_LAST_ROAM_AT'] = ''
-status['_LAST_ROAM_TO'] = '--'
+status['last BSSID'] = ''
+status['last roam at'] = ''
+status['last roam to'] = '--'
+status['roam time'] = '--'
 lastRoamValue = 0
 lastBSSIValue = ''
 logdata.set_startday()
@@ -31,51 +36,68 @@ try:
 
     while True:
         timestamp = logdata.get_timestamp()
-        status['_TIMESTAMP'] = timestamp['_UTC'].isoformat()
-        status['_EPOCH'] = timestamp['_EPOCH']
-        status['_BSSID'] = str(wifi.get_bssid())
-        status['_SSID'] = str(wifi.get_ssid())
-        status['_NOISE'] = wifi.get_aggregatenoise()
-        status['_RSSI'] = wifi.get_rssi()
-        status['_CHANNEL'] = wifi.get_channel()
-        status['_TRANSMITRATE'] = wifi.get_transmitrate()
+        #status['timestamp'] = timestamp['UTC'].isoformat()
+        status['timestamp'] = timestamp['epoch']
+        #status['_EPOCH'] = timestamp['_EPOCH']
+        status['BSSID'] = str(wifi.get_bssid())
+        status['SSID'] = str(wifi.get_ssid())
+        status['noise'] = wifi.get_aggregatenoise()
+        status['RSSI'] = wifi.get_rssi()
+        status['channel'] = wifi.get_channel()
+        status['transmitrate'] = wifi.get_transmitrate()
         connectionStatus = connection.get_connection(remoteHost, remotePort, timeout)
-        status['_PACKETLOSS'] = connectionStatus['_PACKETLOSS']
-        status['_RTT'] = connectionStatus['_RTT']
+        status['packetloss'] = connectionStatus['packetloss']
+        status['RTT'] = connectionStatus['RTT']
 
         # Check roaming and last BSSID
         if lastBSSIValue == '':
             # First run, initiate parameter
 
-            status['_ROAM'] = 'FALSE'
-            status['_LAST_BSSID'] = '--'
-            status['_LAST_ROAM_AT'] = '--'
-            lastRoamValue = status['_RSSI']
-            lastBSSIValue = status['_BSSID']
-        elif status['_BSSID'] == 'None':
+            status['roam'] = 'FALSE'
+            status['last BSSID'] = '--'
+            status['last roam at'] = '--'
+            lastRoamValue = status['RSSI']
+            lastBSSIValue = status['BSSID']
+        elif status['BSSID'] == 'None':
             # Disconnected, keep last known BSSID
-            status['_ROAM'] = 'FALSE'
-            lastRoamValue = status['_RSSI']
-            lastBSSIValue = status['_BSSID']
-        elif status['_BSSID'] == lastBSSIValue:
+            status['roam'] = 'FALSE'
+            lastRoamValue = status['RSSI']
+            lastBSSIValue = status['BSSID']
+        elif status['BSSID'] == lastBSSIValue:
             # Same BSSID as before, no roaming
-            if ['_ROAM'] == 'True':
+            if ['roam'] == 'TRUE':
                 # First loop after a roam
-                status['_LAST_ROAM_TO'] = status['_RSSI']
-            status['_ROAM'] = 'FALSE'
-            lastRoamValue = status['_RSSI']
-            lastBSSIValue = status['_BSSID']
-        elif status['_BSSID'] != lastBSSIValue:
+                status['last roam to'] = status['RSSI']
+            status['roam'] = 'FALSE'
+            lastRoamValue = status['RSSI']
+            lastBSSIValue = status['BSSID']
+        elif status['BSSID'] != lastBSSIValue:
             # BSSID does not match previous, client has roamed
-            status['_ROAM'] = 'TRUE'
-            status['_LAST_BSSID'] = lastBSSIValue
-            status['_LAST_ROAM_AT'] = lastRoamValue
-            status['_LAST_ROAM_TO'] = status['_RSSID']
+            status['roam'] = 'TRUE'
+            status['last BSSID'] = lastBSSIValue
+            status['last roam at'] = lastRoamValue
+            status['last roam to'] = status['RSSI']
+            status['roam time'] = logdata.get_time()
             # Reset BSSID and RSSI
-            lastBSSIValue = status['_BSSID']
-            lastRoamValue = status['_RSSI']
+            lastBSSIValue = status['BSSID']
+            lastRoamValue = status['RSSI']
 
         logdata.print_log(status, sleepTimer)
+        sendgraylog.send_to_graylog(logHost, logPort, status)
+        time.sleep(sleepTimer)
+
+# Print out BSSID in cache
+#
+#        if roamingLimit >= int(status['_RSSI']):
+#            cachedESS = {}
+#            cachedResults = wifi.get_cachedscanresults()
+#
+#            for cwnetworks in cachedResults:
+#
+#                if cwnetworks.ssid() == status['_SSID'] and cwnetworks.bssid() != status['_BSSID']:
+#
+#                    print('{:<6} {:<19} {:<6} {:<5} {:<6} {:<5}'.format('BSSID:', cwnetworks.bssid(), 'RSSI:', cwnetworks.rssi(), 'CHANNEL: ', '--'))
+#        print('------------------------------------------------------------------------------------')
 
         if logToServer:
             logdata.write_log('logbuffer.tmp', status)

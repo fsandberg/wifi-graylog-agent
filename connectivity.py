@@ -11,14 +11,14 @@ class connectivity(object):
         rtt = (stopTime - startTime)*1000
         rtt = float("{0:.2f}".format(rtt))
         returnValue = {}
-        returnValue['_RTT'] = rtt
+        returnValue['RTT'] = rtt
         if result:
             # Packetloss = False
-            returnValue['_PACKETLOSS'] = 'FALSE'
+            returnValue['packetloss'] = 'FALSE'
             return returnValue
         else:
             # Packetloss = True
-            returnValue['_PACKETLOSS'] = 'TRUE'
+            returnValue['packetloss'] = 'TRUE'
             return returnValue
 
 

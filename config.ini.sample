@@ -1,0 +1,8 @@
+[TestEntry]
+Host = master.domain.tld
+Username = root
+Password = rootpassword
+
+[GrayLog]
+Host = master.domain.tld
+Port = 12201

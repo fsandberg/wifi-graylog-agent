@@ -7,7 +7,7 @@ import pytz
 import re
 import time
 import datetime
-import logging
+import logdata
 import json
 
 
@@ -42,8 +42,8 @@ def writeLog(logData):
     return
 
 def sendLog(logData):
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger()
+    logdata.basicConfig(level=logdata.INFO)
+    logger = logdata.getLogger()
     logger.addHandler(GelfTcpHandler(host=LOGHOST, port=LOGTCP))
 
 
