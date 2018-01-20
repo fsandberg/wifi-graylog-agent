@@ -1,6 +1,6 @@
-import ConfigParser
+#import ConfigParser
 import os
-class Config:
+class config:
     def __init__(self):
         pass
 

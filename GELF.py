@@ -1,30 +1,57 @@
-import time
 from socket import *
-try:
-    import simplejson
-except ImportError:
-    import json as simplejson
+import json
 import zlib
-from Config import Config
+import configreader
 
 class GELF:
 
-    def __init__(self, config=Config().read_config()):
-        self.graylog_server = config.get("GrayLog", "Host")
-        self.graylog_port = int(config.get("GrayLog", "Port"))
+    #def __init__(self):
 
     #Send GELF data in UDP Datagram
-    def log_udp(self, data):
+    def log_udp(self, data, loghost, port ):
         try:
             # GELF "Header"
-            data['version'] = '1.1'
-            data['timestamp'] = time.time()
+
+            data['short_message'] = '-'
             data['host'] = gethostname()
-            data['level'] = 6
+            data['clienthostname'] = gethostname()
+            data['facility'] = 'QLS Wireless agent'
+
 
             udp_socket = socket(AF_INET,SOCK_DGRAM)
-            compressed_data = zlib.compress(simplejson.dumps(data).encode('utf-8'))
-            udp_socket.sendto(compressed_data,(self.graylog_server,self.graylog_port))
+            data = json.dumps(data).encode('utf-8')
+            compressed_data = zlib.compress(data)
+            udp_socket.sendto(compressed_data,(loghost, port))
             udp_socket.close()
-        except Exception, e:
+        except Exception:
             raise
+
+    def log_tcp(self, logdata, loghost, port):
+        try:
+            # GELF "Header"
+
+            logdata['short_message'] = '-'
+            logdata['host'] = gethostname()
+            logdata['facility'] = 'QLS wireless agent'
+            logdata['clienthostname'] = gethostname()
+
+            tcp_socket = socket(AF_INET, SOCK_STREAM)
+            tcp_socket.settimeout(.5)
+            tcp_socket.connect((loghost, port))
+            logdata['clientip'] = tcp_socket.getsockname()[0]
+            logdata = json.dumps(logdata).encode('utf-8')
+            tcp_socket.send(logdata)
+
+        except timeout:
+            print('\033[91mTIMEOUT CONNECTING TO LOGSERVER\033[0m')
+
+        except error:
+            print('\033[91mNETWORK UNREACHABLE / CLIENT DISCONNECTED\033[0m')
+
+        finally:
+            tcp_socket.close()
+
+
+
+
+

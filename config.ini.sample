@@ -4,5 +4,5 @@ Username = root
 Password = rootpassword
 
 [GrayLog]
-Host = master.domain.tld
-Port = 12201
+Host = 10.20.200.158
+Port = 5405

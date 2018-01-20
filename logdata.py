@@ -1,8 +1,12 @@
 
 import json
 import datetime
-import time
+import netifaces
 import pytz
+import re
+import uuid
+from GELF import GELF
+import configreader
 
 class logdata(object):
     ''' Check connection'''
@@ -37,36 +41,54 @@ class logdata(object):
   #  def get_epoch(self, timestamp):
   #      return get_timestamp.timestamp()
 
-    def set_startday(self):
-        global startDay
-        global maxPacketLost
-        global sumPacketLost
+    def set_startvalues(self):
+        logdata = {}
+        logdata['maxpacketlost'] = 0
+        logdata['sumpacketlost'] = 0
+        logdata['startday'] = datetime.datetime.now().strftime('%Y-%m-%d')
 
-        maxPacketLost = 0
-        sumPacketLost = 0
-        startDay = datetime.datetime.now().strftime('%Y-%m-%d')
+        logdata['last BSSID'] = ''
+        logdata['last roam at'] = ''
+        logdata['last roam to'] = '--'
+        logdata['roam time'] = '--'
+        logdata['clientmac'] = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+        #gateways = netifaces.gateways()
+        #logdata['defaultgateway'] = gateways['default']
 
-        return
+
+
+        return logdata
+
     def get_time(self):
         time_now = datetime.datetime.now().strftime('%H:%M:%S')
 
         return time_now
 
-    def get_startday(self):
-        global startDay
+    def process_logdata(self, logdata):
 
-        return startDay
-
-    def print_log(self, status, sleeptimer):
-
-        global sumPacketLost
-        global maxPacketLost
+        if logdata['packetloss'] == 'TRUE':
+            logdata['packetlosscount'] = 1
+            logdata['sumpacketlost'] += 1
+            if logdata['sumpacketlost'] > logdata['maxpacketlost']:
+                logdata['maxpacketlost'] = logdata['sumpacketlost']
+        else:
+            logdata['packetlosscount'] = 0
+            logdata['sumpacketlost'] = 0
 
         # Reset maxPacketLost on new day
         today = datetime.datetime.now().strftime('%Y-%m-%d')
-        if today != logdata.get_startday(self):
-            maxPacketLost = 0
-        #print(status['timestamp'] + '\n')
+        if today != logdata['startday']:
+            logdata['maxpacketlost'] = 0
+
+        timenow = datetime.datetime.now(tz=pytz.utc)
+        logdata['timestamp'] = timenow.timestamp()
+
+        return logdata
+
+    def print_log(self, status, sleeptimer):
+
+        print(status['timestamp'])
+        print('')
         print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT BSSID:', status['BSSID'], '', 'LAST BSSID:', status['last BSSID']))
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('SSID:', status['SSID'], '', 'ROAM TIME:', status['roam time']))
         if status['roam'] == 'TRUE':
@@ -76,20 +98,16 @@ class logdata(object):
         print('{:<15} {:>19} {:>10} {:<15} {:>17}'.format('CURRENT CHANNEL:', status['channel'], '', 'LAST ROAM AT RSSI:', status['last roam at']))
         print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format('CURRENT NOISE:', status['noise'], '', 'LAST ROAM TO RSSI:', status['last roam to']))
         if status['packetloss'] == 'TRUE':
-            status['loss count'] = 1
-            sumPacketLost += 1
-            if sumPacketLost > maxPacketLost:
-                maxPacketLost = sumPacketLost
             print('{:<15} {:>20} {:>10} {:<15} {:>23} {:>3}'.format('TX RATE:', status['transmitrate'], '', 'PACKET LOST:\033[91m', status['packetloss'], '\033[0m'))
-            print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', maxPacketLost))
+            print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', status['maxpacketlost']))
         else:
-            status['loss count'] = 0
-            sumPacketLost = 0
             print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('TX RATE:', status['transmitrate'], '', 'PACKET LOST:', status['packetloss']))
-            print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', maxPacketLost))
+            print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', status['maxpacketlost']))
 
+        #print(status['gateway'])
         print('------------------------------------------------------------------------------------')
-        #time.sleep(sleeptimer)
 
         return status
+
+
 

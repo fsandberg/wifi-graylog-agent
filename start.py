@@ -1,21 +1,21 @@
 from osxwifi import wifistatus
 from connectivity import connectivity
 from logdata import *
-from sendgraylog import sendgraylog
+from GELF import GELF
+import time
 
 wifi = wifistatus()
 connection = connectivity()
-logdata = logdata()
-sendgraylog = sendgraylog()
+loghandler = logdata()
 
 logToServer = False
 
-sleepTimer = 1  # Time in s between logging cycles
+sleepTimer = 0.5  # Time in s between logging cycles
 remoteHost = 'www.google.se'
 remotePort = 80
 timeout = 200  # Timeout in ms
-logHost = '10.20.200.157'
-logPort = '5045'
+loghost = '10.20.200.157'
+logport = 5045
 
 timeout = float(timeout)/1000
 
@@ -23,67 +23,66 @@ clientMAC = wifi.get_hardwareaddress()
 roamingLimit = -10
 
 # set initial values
-status = {}
-status['last BSSID'] = ''
-status['last roam at'] = ''
-status['last roam to'] = '--'
-status['roam time'] = '--'
+
+
 lastRoamValue = 0
 lastBSSIValue = ''
-logdata.set_startday()
+
+logdata = loghandler.set_startvalues()
 
 try:
 
     while True:
-        timestamp = logdata.get_timestamp()
-        #status['timestamp'] = timestamp['UTC'].isoformat()
-        status['timestamp'] = timestamp['epoch']
-        #status['_EPOCH'] = timestamp['_EPOCH']
-        status['BSSID'] = str(wifi.get_bssid())
-        status['SSID'] = str(wifi.get_ssid())
-        status['noise'] = wifi.get_aggregatenoise()
-        status['RSSI'] = wifi.get_rssi()
-        status['channel'] = wifi.get_channel()
-        status['transmitrate'] = wifi.get_transmitrate()
+        logdata['BSSID'] = str(wifi.get_bssid())
+        logdata['SSID'] = str(wifi.get_ssid())
+        logdata['noise'] = wifi.get_aggregatenoise()
+        logdata['RSSI'] = wifi.get_rssi()
+        logdata['channel'] = wifi.get_channel()
+        logdata['transmitrate'] = wifi.get_transmitrate()
+
         connectionStatus = connection.get_connection(remoteHost, remotePort, timeout)
-        status['packetloss'] = connectionStatus['packetloss']
-        status['RTT'] = connectionStatus['RTT']
+
+        logdata['packetloss'] = connectionStatus['packetloss']
+        logdata['RTT'] = connectionStatus['RTT']
 
         # Check roaming and last BSSID
         if lastBSSIValue == '':
             # First run, initiate parameter
 
-            status['roam'] = 'FALSE'
-            status['last BSSID'] = '--'
-            status['last roam at'] = '--'
-            lastRoamValue = status['RSSI']
-            lastBSSIValue = status['BSSID']
-        elif status['BSSID'] == 'None':
+            logdata['roam'] = 'FALSE'
+            logdata['last BSSID'] = '--'
+            logdata['last roam at'] = '--'
+            lastRoamValue = logdata['RSSI']
+            lastBSSIValue = logdata['BSSID']
+        elif logdata['BSSID'] == 'None':
             # Disconnected, keep last known BSSID
-            status['roam'] = 'FALSE'
-            lastRoamValue = status['RSSI']
-            lastBSSIValue = status['BSSID']
-        elif status['BSSID'] == lastBSSIValue:
+            logdata['roam'] = 'FALSE'
+            lastRoamValue = logdata['RSSI']
+            lastBSSIValue = logdata['BSSID']
+        elif logdata['BSSID'] == lastBSSIValue:
             # Same BSSID as before, no roaming
-            if ['roam'] == 'TRUE':
+            if logdata['roam'] == 'TRUE':
                 # First loop after a roam
-                status['last roam to'] = status['RSSI']
-            status['roam'] = 'FALSE'
-            lastRoamValue = status['RSSI']
-            lastBSSIValue = status['BSSID']
-        elif status['BSSID'] != lastBSSIValue:
+                logdata['last roam to'] = logdata['RSSI']
+                logdata['roam'] = 'FALSE'
+            lastRoamValue = logdata['RSSI']
+            lastBSSIValue = logdata['BSSID']
+        elif logdata['BSSID'] != lastBSSIValue:
             # BSSID does not match previous, client has roamed
-            status['roam'] = 'TRUE'
-            status['last BSSID'] = lastBSSIValue
-            status['last roam at'] = lastRoamValue
-            status['last roam to'] = status['RSSI']
-            status['roam time'] = logdata.get_time()
+            logdata['roam'] = 'TRUE'
+            logdata['last BSSID'] = lastBSSIValue
+            logdata['last roam at'] = lastRoamValue
+            logdata['last roam to'] = logdata['RSSI']
+            logdata['roam time'] = datetime.datetime.now(tz=pytz.utc)
             # Reset BSSID and RSSI
-            lastBSSIValue = status['BSSID']
-            lastRoamValue = status['RSSI']
+            lastBSSIValue = logdata['BSSID']
+            lastRoamValue = logdata['RSSI']
 
-        logdata.print_log(status, sleepTimer)
-        sendgraylog.send_to_graylog(logHost, logPort, status)
+        loghandler.process_logdata(logdata)
+        loghandler.print_log(logdata, sleepTimer)
+        GELF().log_tcp(logdata, loghost, logport)
+
+        #sendgraylog.send_to_graylog(logHost, logPort, status)
         time.sleep(sleepTimer)
 
 # Print out BSSID in cache
@@ -100,7 +99,7 @@ try:
 #        print('------------------------------------------------------------------------------------')
 
         if logToServer:
-            logdata.write_log('logbuffer.tmp', status)
+            logdata.write_log('logbuffer.tmp', logdata)
 
 except KeyboardInterrupt:
         print('\nUser interrupted process with CTRL-C\n')
