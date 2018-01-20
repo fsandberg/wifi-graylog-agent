@@ -20,7 +20,7 @@ class connectivity(object):
         else:
             # Packetloss = True
             returnValue['packetloss'] = 'TRUE'
-            returnValue['RTT'] = 0
+            returnValue['RTT'] = -1
             return returnValue
 
 

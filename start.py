@@ -70,10 +70,10 @@ try:
         elif logdata['BSSID'] != lastBSSIValue:
             # BSSID does not match previous, client has roamed
             logdata['roam'] = 'TRUE'
-            logdata['last BSSID'] = lastBSSIValue
-            logdata['last roam at'] = lastRoamValue
-            logdata['last roam to'] = logdata['RSSI']
-            logdata['roam time'] = datetime.datetime.now(tz=pytz.utc)
+            logdata['last_BSSID'] = lastBSSIValue
+            logdata['last_roam_at'] = lastRoamValue
+            logdata['last_roam_to'] = logdata['RSSI']
+            logdata['roam_time'] = datetime.datetime.now(tz=pytz.utc)
             # Reset BSSID and RSSI
             lastBSSIValue = logdata['BSSID']
             lastRoamValue = logdata['RSSI']

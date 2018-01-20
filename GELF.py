@@ -12,7 +12,7 @@ class GELF:
         try:
             # GELF "Header"
 
-            data['short_message'] = '-'
+            #data['short_message'] = '-'
             data['host'] = gethostname()
             data['clienthostname'] = gethostname()
             data['facility'] = 'QLS Wireless agent'
@@ -30,7 +30,7 @@ class GELF:
         try:
             # GELF "Header"
 
-            logdata['short_message'] = '-'
+            #logdata['short_message'] = '-'
             logdata['host'] = gethostname()
             logdata['facility'] = 'QLS wireless agent'
             logdata['clienthostname'] = gethostname()

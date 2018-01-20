@@ -47,10 +47,10 @@ class logdata(object):
         logdata['sumpacketlost'] = 0
         logdata['startday'] = datetime.datetime.now().strftime('%Y-%m-%d')
 
-        logdata['last BSSID'] = ''
-        logdata['last roam at'] = ''
-        logdata['last roam to'] = '--'
-        logdata['roam time'] = '--'
+        logdata['last_BSSID'] = ''
+        logdata['last_roam_at'] = ''
+        logdata['last_roam_to'] = ''
+        logdata['roam_time'] = ''
         logdata['clientmac'] = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
         #gateways = netifaces.gateways()
         #logdata['defaultgateway'] = gateways['default']
@@ -66,14 +66,27 @@ class logdata(object):
 
     def process_logdata(self, logdata):
 
+        logdata['short_message'] = ''
+
         if logdata['packetloss'] == 'TRUE':
+            logdata['short_message'] = 'LOST PACKET, TOTAL ' + str(logdata['sumpacketlost']) + ' '
             logdata['packetlosscount'] = 1
             logdata['sumpacketlost'] += 1
             if logdata['sumpacketlost'] > logdata['maxpacketlost']:
                 logdata['maxpacketlost'] = logdata['sumpacketlost']
-        else:
+        if logdata['packetloss'] == 'FALSE':
             logdata['packetlosscount'] = 0
             logdata['sumpacketlost'] = 0
+        if logdata['roam'] == 'TRUE':
+            logdata['short_message'] = logdata['short_message'] + 'ROAMED FROM ' + logdata['last_BSSID'] + ' TO ' + logdata['BSSID'] + ' '
+        if logdata['SSID'] == None:
+            logdata['short_message'] = 'CLIENT DISCONNECTED '
+
+        if logdata['short_message'] == '':
+            logdata['short_message'] = '-'
+
+
+
 
         # Reset maxPacketLost on new day
         today = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -89,14 +102,14 @@ class logdata(object):
 
         print(status['timestamp'])
         print('')
-        print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT BSSID:', status['BSSID'], '', 'LAST BSSID:', status['last BSSID']))
-        print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('SSID:', status['SSID'], '', 'ROAM TIME:', status['roam time']))
+        print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT BSSID:', status['BSSID'], '', 'LAST BSSID:', status['last_BSSID']))
+        print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('SSID:', status['SSID'], '', 'ROAM TIME:', status['roam_time']))
         if status['roam'] == 'TRUE':
             print('{:<15} {:>20} {:>10} {:<15} {:>25} {:>3}'.format('CURRENT RSSI:', status['RSSI'], '', 'ROAM:\033[92m', status['roam'], '\033[0m'))
         else:
             print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT RSSI:', status['RSSI'], '', 'ROAM NOW:', status['roam']))
-        print('{:<15} {:>19} {:>10} {:<15} {:>17}'.format('CURRENT CHANNEL:', status['channel'], '', 'LAST ROAM AT RSSI:', status['last roam at']))
-        print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format('CURRENT NOISE:', status['noise'], '', 'LAST ROAM TO RSSI:', status['last roam to']))
+        print('{:<15} {:>19} {:>10} {:<15} {:>17}'.format('CURRENT CHANNEL:', status['channel'], '', 'LAST ROAM AT RSSI:', status['last_roam_at']))
+        print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format('CURRENT NOISE:', status['noise'], '', 'LAST ROAM TO RSSI:', status['last_roam_to']))
         if status['packetloss'] == 'TRUE':
             print('{:<15} {:>20} {:>10} {:<15} {:>23} {:>3}'.format('TX RATE:', status['transmitrate'], '', 'PACKET LOST:\033[91m', status['packetloss'], '\033[0m'))
             print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', status['maxpacketlost']))
