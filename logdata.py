@@ -1,32 +1,46 @@
-
+from connectivity import ConnectionCheck
+from gelf import GelfConnector
+from osxwifi import WifiStatus
 import json
 import datetime
-import netifaces
 import pytz
+import threading
+import netifaces
 import re
 import uuid
-from GELF import GELF
-import configreader
 
-class logdata(object):
-    ''' Check connection'''
 
-    def send_log(self, logfile):
+class LogProcessing(object):
+
+    def send_log(self, logfile, loghost, logport):
         with open(logfile, 'r') as readlog:
-            data = readlog.read().splitlines(True)
-        # connect to logserver to send line
 
-        # if connection to logserver is successful, run code below to delete transmitted line
-        with open(logfile, 'w') as writelog:
-            writelog.writelines(data[1:])
+            line_content = readlog.read().splitlines(True)
+
+            if ConnectionCheck().check_connection(loghost, logport, 0.200):
+                counter = 0
+                for lines in line_content:
+                    counter = counter + 1
+                    log_data_json = json.loads(lines)
+                    GelfConnector().log_tcp(log_data_json, loghost, logport)
+                threading._start_new_thread(LogProcessing.rewrite_log, (self, logfile, line_content, counter))
+            else:
+                print('\033[91mNO CONNECTION TO LOGSERVER ' + loghost + ':' + logport + '\033[0m')
+
+
 
         return
 
-    def write_log(self, logfile, data):
+    def rewrite_log(self, logfile, logdata, count):
+        with open(logfile, 'w') as writelog:
+            writelog.writelines(logdata[count:])
 
+        return
+
+    def write_log(self, logfile, logdata):
         with open(logfile, 'a') as appendlog:
-            statusdata = json.dumps(data)
-            appendlog.writelines(statusdata)
+            logdata = json.dumps(logdata)
+            appendlog.writelines(logdata)
             appendlog.writelines('\n')
 
         return
@@ -38,24 +52,20 @@ class logdata(object):
 
         return returnValue
 
-  #  def get_epoch(self, timestamp):
-  #      return get_timestamp.timestamp()
-
     def set_startvalues(self):
         logdata = {}
         logdata['maxpacketlost'] = 0
         logdata['sumpacketlost'] = 0
         logdata['startday'] = datetime.datetime.now().strftime('%Y-%m-%d')
 
-        logdata['last_BSSID'] = ''
-        logdata['last_roam_at'] = ''
-        logdata['last_roam_to'] = ''
-        logdata['roam_time'] = ''
-        logdata['clientmac'] = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+        logdata['last_BSSID'] = '--'
+        logdata['last_roam_at'] = '--'
+        logdata['last_roam_to'] = '--'
+        logdata['roam_time'] = '--'
+        #logdata['clientmac'] = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+        logdata['clientmac'] = WifiStatus().get_hardwareaddress()
         #gateways = netifaces.gateways()
         #logdata['defaultgateway'] = gateways['default']
-
-
 
         return logdata
 
@@ -65,31 +75,32 @@ class logdata(object):
         return time_now
 
     def process_logdata(self, logdata):
-
         logdata['short_message'] = ''
 
         if logdata['packetloss'] == 'TRUE':
-            logdata['short_message'] = 'LOST PACKET, TOTAL ' + str(logdata['sumpacketlost']) + ' '
             logdata['packetlosscount'] = 1
             logdata['sumpacketlost'] += 1
+            logdata['short_message'] = 'LOST PACKET, TOTAL ' + str(logdata['sumpacketlost']) + ' '
+
             if logdata['sumpacketlost'] > logdata['maxpacketlost']:
                 logdata['maxpacketlost'] = logdata['sumpacketlost']
+
         if logdata['packetloss'] == 'FALSE':
             logdata['packetlosscount'] = 0
             logdata['sumpacketlost'] = 0
+
         if logdata['roam'] == 'TRUE':
             logdata['short_message'] = logdata['short_message'] + 'ROAMED FROM ' + logdata['last_BSSID'] + ' TO ' + logdata['BSSID'] + ' '
-        if logdata['SSID'] == None:
-            logdata['short_message'] = 'CLIENT DISCONNECTED '
+
+        if logdata['SSID'] == 'None':
+            logdata['short_message'] = logdata['short_message'] + 'CLIENT IS NOT CONNECTED!'
 
         if logdata['short_message'] == '':
             logdata['short_message'] = '-'
 
-
-
-
         # Reset maxPacketLost on new day
         today = datetime.datetime.now().strftime('%Y-%m-%d')
+
         if today != logdata['startday']:
             logdata['maxpacketlost'] = 0
 
@@ -98,18 +109,17 @@ class logdata(object):
 
         return logdata
 
-    def print_log(self, status, sleeptimer):
-
-        print(status['timestamp'])
-        print('')
+    def print_log(self, status):
         print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT BSSID:', status['BSSID'], '', 'LAST BSSID:', status['last_BSSID']))
         print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('SSID:', status['SSID'], '', 'ROAM TIME:', status['roam_time']))
+
         if status['roam'] == 'TRUE':
             print('{:<15} {:>20} {:>10} {:<15} {:>25} {:>3}'.format('CURRENT RSSI:', status['RSSI'], '', 'ROAM:\033[92m', status['roam'], '\033[0m'))
         else:
             print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT RSSI:', status['RSSI'], '', 'ROAM NOW:', status['roam']))
         print('{:<15} {:>19} {:>10} {:<15} {:>17}'.format('CURRENT CHANNEL:', status['channel'], '', 'LAST ROAM AT RSSI:', status['last_roam_at']))
         print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format('CURRENT NOISE:', status['noise'], '', 'LAST ROAM TO RSSI:', status['last_roam_to']))
+
         if status['packetloss'] == 'TRUE':
             print('{:<15} {:>20} {:>10} {:<15} {:>23} {:>3}'.format('TX RATE:', status['transmitrate'], '', 'PACKET LOST:\033[91m', status['packetloss'], '\033[0m'))
             print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', status['maxpacketlost']))
@@ -117,7 +127,7 @@ class logdata(object):
             print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('TX RATE:', status['transmitrate'], '', 'PACKET LOST:', status['packetloss']))
             print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', status['maxpacketlost']))
 
-        #print(status['gateway'])
+        # print(status['gateway'])
         print('------------------------------------------------------------------------------------')
 
         return status

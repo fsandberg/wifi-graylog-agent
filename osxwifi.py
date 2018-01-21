@@ -4,7 +4,7 @@ objc.loadBundle('CoreWLAN',
                 bundle_path='/System/Library/Frameworks/CoreWLAN.framework',
                 module_globals=globals())
 
-class wifistatus(object):
+class WifiStatus(object):
     ''' WiFI object'''
 
     def __init__(self):

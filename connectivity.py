@@ -1,8 +1,13 @@
 from tcpping import tcpping
 import time
 
-class connectivity(object):
-    ''' Check connection'''
+
+class ConnectionCheck(object):
+
+    def check_connection(self, host, port, timeout):
+        result = tcpping(host, port, timeout)
+
+        return result
 
     def get_connection(self, host, port, timeout):
         startTime = time.time()

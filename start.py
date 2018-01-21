@@ -1,89 +1,112 @@
-from osxwifi import wifistatus
-from connectivity import connectivity
-from logdata import *
-from GELF import GELF
+from osxwifi import WifiStatus
+from logdata import LogProcessing
+from connectivity import ConnectionCheck
+import datetime
+import pytz
+import configparser
 import time
+import sys
+import os
+import threading
 
-wifi = wifistatus()
-connection = connectivity()
-loghandler = logdata()
+Wifi = WifiStatus()
+Connection = ConnectionCheck()
+LogHandler = LogProcessing()
 
-logToServer = False
+try:
+    Config = configparser.ConfigParser()
+    ConfigFile = os.path.dirname(os.path.abspath(__file__))+"/config.ini"
+    Config.read(ConfigFile)
 
-sleepTimer = 0.5  # Time in s between logging cycles
-remoteHost = 'www.google.se'
-remotePort = 80
-timeout = 200  # Timeout in ms
-loghost = '10.20.200.157'
-logport = 5045
+    LogHost = Config['GrayLog']['Host']
+    LogPort = Config['GrayLog']['Port']
 
-timeout = float(timeout)/1000
+    PrintToConsole = Config['Output']['Console']
+    SendToLogHost = Config['Output']['Logserver']
+    SleepTimer = float(Config['Output']['Pause'])
+    LogFile = Config['Output']['File']
 
-clientMAC = wifi.get_hardwareaddress()
-roamingLimit = -10
+    TestServer = Config['Connectivity']['Testserver']
+    TestPort = int(Config['Connectivity']['Port'])
+    TimeOut = int(Config['Connectivity']['Timeout'])
+    TimeOut = float(TimeOut)/1000
 
-# set initial values
+except KeyError:
+    print('\033[91mERROR READING VALUES IN CONFIGURATION FILE\033[0m')
+    sys.exit(0)
 
+except configparser.NoSectionError:
+    print('\033[91mBAD FORMAT IN CONFIGURATION FILE\033[0m')
+    sys.exit(0)
 
-lastRoamValue = 0
-lastBSSIValue = ''
+except configparser.Error:
+    print('\033[91mERROR READING CONFIGURATION FILE\033[0m')
+    sys.exit(0)
 
-logdata = loghandler.set_startvalues()
+LastRoamValue = 0
+LastBSSIValue = ''
+
+LogData = LogHandler.set_startvalues()
 
 try:
 
     while True:
-        logdata['BSSID'] = str(wifi.get_bssid())
-        logdata['SSID'] = str(wifi.get_ssid())
-        logdata['noise'] = wifi.get_aggregatenoise()
-        logdata['RSSI'] = wifi.get_rssi()
-        logdata['channel'] = wifi.get_channel()
-        logdata['transmitrate'] = wifi.get_transmitrate()
+        LogData['BSSID'] = str(Wifi.get_bssid())
+        LogData['SSID'] = str(Wifi.get_ssid())
+        LogData['noise'] = Wifi.get_aggregatenoise()
+        LogData['RSSI'] = Wifi.get_rssi()
+        LogData['channel'] = Wifi.get_channel()
+        LogData['transmitrate'] = Wifi.get_transmitrate()
 
-        connectionStatus = connection.get_connection(remoteHost, remotePort, timeout)
+        ConnectionStatus = Connection.get_connection(TestServer, TestPort, TimeOut)
 
-        logdata['packetloss'] = connectionStatus['packetloss']
-        logdata['RTT'] = connectionStatus['RTT']
+        LogData['packetloss'] = ConnectionStatus['packetloss']
+        LogData['RTT'] = ConnectionStatus['RTT']
 
         # Check roaming and last BSSID
-        if lastBSSIValue == '':
+        if LastBSSIValue == '':
             # First run, initiate parameter
 
-            logdata['roam'] = 'FALSE'
-            logdata['last BSSID'] = '--'
-            logdata['last roam at'] = '--'
-            lastRoamValue = logdata['RSSI']
-            lastBSSIValue = logdata['BSSID']
-        elif logdata['BSSID'] == 'None':
+            LogData['roam'] = 'FALSE'
+            LogData['last BSSID'] = '--'
+            LogData['last roam at'] = '--'
+            LastRoamValue = LogData['RSSI']
+            LastBSSIValue = LogData['BSSID']
+        elif LogData['BSSID'] == 'None':
             # Disconnected, keep last known BSSID
-            logdata['roam'] = 'FALSE'
-            lastRoamValue = logdata['RSSI']
-            lastBSSIValue = logdata['BSSID']
-        elif logdata['BSSID'] == lastBSSIValue:
+            LogData['roam'] = 'FALSE'
+            LastRoamValue = LogData['RSSI']
+            LastBSSIValue = LogData['BSSID']
+        elif LogData['BSSID'] == LastBSSIValue:
             # Same BSSID as before, no roaming
-            if logdata['roam'] == 'TRUE':
+            if LogData['roam'] == 'TRUE':
                 # First loop after a roam
-                logdata['last roam to'] = logdata['RSSI']
-                logdata['roam'] = 'FALSE'
-            lastRoamValue = logdata['RSSI']
-            lastBSSIValue = logdata['BSSID']
-        elif logdata['BSSID'] != lastBSSIValue:
+                LogData['last roam to'] = LogData['RSSI']
+                LogData['roam'] = 'FALSE'
+            LastRoamValue = LogData['RSSI']
+            LastBSSIValue = LogData['BSSID']
+        elif LogData['BSSID'] != LastBSSIValue:
             # BSSID does not match previous, client has roamed
-            logdata['roam'] = 'TRUE'
-            logdata['last_BSSID'] = lastBSSIValue
-            logdata['last_roam_at'] = lastRoamValue
-            logdata['last_roam_to'] = logdata['RSSI']
-            logdata['roam_time'] = datetime.datetime.now(tz=pytz.utc)
+            LogData['roam'] = 'TRUE'
+            LogData['last_BSSID'] = LastBSSIValue
+            LogData['last_roam_at'] = LastRoamValue
+            LogData['last_roam_to'] = LogData['RSSI']
+            LogData['roam_time'] = str(datetime.datetime.now(tz=pytz.utc).strftime('%H:%M:%S.%f'))
             # Reset BSSID and RSSI
-            lastBSSIValue = logdata['BSSID']
-            lastRoamValue = logdata['RSSI']
+            LastBSSIValue = LogData['BSSID']
+            LastRoamValue = LogData['RSSI']
 
-        loghandler.process_logdata(logdata)
-        loghandler.print_log(logdata, sleepTimer)
-        GELF().log_tcp(logdata, loghost, logport)
+        LogHandler.process_logdata(LogData)
 
-        #sendgraylog.send_to_graylog(logHost, logPort, status)
-        time.sleep(sleepTimer)
+        if PrintToConsole.upper() == 'TRUE':
+            LogHandler.print_log(LogData)
+
+        if SendToLogHost.upper() == 'TRUE':
+            LogHandler.write_log(LogFile, LogData)
+            #threading._start_new_thread(loghandler.send_log, (logfile, loghost, logport))
+            LogHandler.send_log(LogFile, LogHost, LogPort)
+
+        time.sleep(SleepTimer)
 
 # Print out BSSID in cache
 #
@@ -98,8 +121,6 @@ try:
 #                    print('{:<6} {:<19} {:<6} {:<5} {:<6} {:<5}'.format('BSSID:', cwnetworks.bssid(), 'RSSI:', cwnetworks.rssi(), 'CHANNEL: ', '--'))
 #        print('------------------------------------------------------------------------------------')
 
-        if logToServer:
-            logdata.write_log('logbuffer.tmp', logdata)
 
 except KeyboardInterrupt:
         print('\nUser interrupted process with CTRL-C\n')

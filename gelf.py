@@ -1,22 +1,20 @@
 from socket import *
 import json
 import zlib
-import configreader
 
-class GELF:
 
-    #def __init__(self):
+class GelfConnector:
 
-    #Send GELF data in UDP Datagram
+    def __init__(self):
+        pass
+
     def log_udp(self, data, loghost, port ):
         try:
             # GELF "Header"
-
-            #data['short_message'] = '-'
+            data['short_message'] = '-'
             data['host'] = gethostname()
             data['clienthostname'] = gethostname()
             data['facility'] = 'QLS Wireless agent'
-
 
             udp_socket = socket(AF_INET,SOCK_DGRAM)
             data = json.dumps(data).encode('utf-8')
@@ -29,27 +27,30 @@ class GELF:
     def log_tcp(self, logdata, loghost, port):
         try:
             # GELF "Header"
-
-            #logdata['short_message'] = '-'
             logdata['host'] = gethostname()
             logdata['facility'] = 'QLS wireless agent'
             logdata['clienthostname'] = gethostname()
 
             tcp_socket = socket(AF_INET, SOCK_STREAM)
-            tcp_socket.settimeout(.5)
-            tcp_socket.connect((loghost, port))
+            tcp_socket.settimeout(.200)
+            tcp_socket.connect((loghost, int(port)))
             logdata['clientip'] = tcp_socket.getsockname()[0]
             logdata = json.dumps(logdata).encode('utf-8')
+
             tcp_socket.send(logdata)
 
         except timeout:
             print('\033[91mTIMEOUT CONNECTING TO LOGSERVER\033[0m')
+            return False
 
         except error:
             print('\033[91mNETWORK UNREACHABLE / CLIENT DISCONNECTED\033[0m')
+            return False
 
         finally:
             tcp_socket.close()
+
+        return True
 
 
 

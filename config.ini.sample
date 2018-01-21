@@ -1,8 +1,0 @@
-[TestEntry]
-Host = master.domain.tld
-Username = root
-Password = rootpassword
-
-[GrayLog]
-Host = 10.20.200.158
-Port = 5405
