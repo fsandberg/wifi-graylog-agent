@@ -1,13 +1,14 @@
 from connectivity import ConnectionCheck
 from gelf import GelfConnector
+from logstash import LogstashConnector
 from osxwifi import WifiStatus
 import json
 import datetime
 import pytz
 import threading
-import netifaces
-import re
-import uuid
+#import netifaces
+#import re
+#import uuid
 
 
 class LogProcessing(object):
@@ -22,7 +23,8 @@ class LogProcessing(object):
                 for lines in line_content:
                     counter = counter + 1
                     log_data_json = json.loads(lines)
-                    GelfConnector().log_tcp(log_data_json, loghost, logport)
+                    #GelfConnector().log_tcp(log_data_json, loghost, logport)
+                    LogstashConnector().log_tcp(log_data_json, loghost, logport)
                 threading._start_new_thread(LogProcessing.rewrite_log, (self, logfile, line_content, counter))
             else:
                 print('\033[91mNO CONNECTION TO LOGSERVER ' + loghost + ':' + logport + '\033[0m')
@@ -76,6 +78,7 @@ class LogProcessing(object):
 
     def process_logdata(self, logdata):
         logdata['short_message'] = ''
+        logdata['roamcount'] = 0
 
         if logdata['packetloss'] == 'TRUE':
             logdata['packetlosscount'] = 1
@@ -90,6 +93,7 @@ class LogProcessing(object):
             logdata['sumpacketlost'] = 0
 
         if logdata['roam'] == 'TRUE':
+            logdata['roamcount'] = 1
             logdata['short_message'] = logdata['short_message'] + 'ROAMED FROM ' + logdata['last_BSSID'] + ' TO ' + logdata['BSSID'] + ' '
 
         if logdata['SSID'] == 'None':
@@ -104,8 +108,8 @@ class LogProcessing(object):
         if today != logdata['startday']:
             logdata['maxpacketlost'] = 0
 
-        timenow = datetime.datetime.now(tz=pytz.utc)
-        logdata['timestamp'] = timenow.timestamp()
+        #timenow = datetime.datetime.now(tz=pytz.utc)
+        logdata['timestamp'] = str(datetime.datetime.now(tz=pytz.utc))
 
         return logdata
 
