@@ -25,7 +25,7 @@ class ConnectionCheck(object):
         else:
             # Packetloss = True
             returnValue['packetloss'] = 'TRUE'
-            returnValue['RTT'] = -1
+            returnValue['RTT'] = 0
             return returnValue
 
 

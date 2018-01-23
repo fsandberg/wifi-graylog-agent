@@ -18,13 +18,12 @@ try:
     ConfigFile = os.path.dirname(os.path.abspath(__file__))+"/config.ini"
     Config.read(ConfigFile)
 
-    LogHost = Config['GrayLog']['Host']
-    LogPort = Config['GrayLog']['Port']
+    LogHost = Config['Logging']['Host']
+    LogPort = Config['Logging']['Port']
 
     PrintToConsole = Config['Output']['Console']
     SendToLogHost = Config['Output']['Logserver']
     SleepTimer = float(Config['Output']['Pause'])
-    LogFile = Config['Output']['File']
 
     TestServer = Config['Connectivity']['Testserver']
     TestPort = int(Config['Connectivity']['Port'])
@@ -102,9 +101,7 @@ try:
             LogHandler.print_log(LogData)
 
         if SendToLogHost.upper() == 'TRUE':
-            LogHandler.write_log(LogFile, LogData)
-            #threading._start_new_thread(loghandler.send_log, (logfile, loghost, logport))
-            LogHandler.send_log(LogFile, LogHost, LogPort)
+            LogHandler.send_log(LogData, LogHost, LogPort)
 
         time.sleep(SleepTimer)
 

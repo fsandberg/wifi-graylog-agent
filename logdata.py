@@ -1,7 +1,9 @@
 from connectivity import ConnectionCheck
-from gelf import GelfConnector
+#from gelf import GelfConnector
 from logstash import LogstashConnector
 from osxwifi import WifiStatus
+from pathlib import Path
+import os
 import json
 import datetime
 import pytz
@@ -13,7 +15,7 @@ import threading
 
 class LogProcessing(object):
 
-    def send_log(self, logfile, loghost, logport):
+    def send_log_old(self, logfile, loghost, logport):
         with open(logfile, 'r') as readlog:
 
             line_content = readlog.read().splitlines(True)
@@ -29,9 +31,36 @@ class LogProcessing(object):
             else:
                 print('\033[91mNO CONNECTION TO LOGSERVER ' + loghost + ':' + logport + '\033[0m')
 
+        return
 
+    def send_log(self, logdata, loghost, logport):
+
+        # Check connection to logserver
+        if ConnectionCheck().check_connection(loghost, logport, 0.200):
+            # Check if cache file exists
+            cachefile = Path('CACHE')
+            if cachefile.is_file():
+                # Start a new thread and send cached log
+                threading._start_new_thread(self.send_cache, (loghost, logport))
+
+            # Send dict to logstash function
+            LogstashConnector().log_tcp(logdata, loghost, logport)
+
+        else:
+            # Write logs to cache file
+            self.write_log('CACHE', logdata)
+            print('\033[91mNo connection to logserver ' + loghost + ':' + logport + '\033[0m')
 
         return
+
+    def send_cache(self, loghost, logport):
+        # Loop through CACHE file and send to logstash
+        with open('CACHE', 'r') as cache:
+            for lines in cache:
+                log_data_json = json.loads(lines)
+                LogstashConnector().log_tcp(log_data_json, loghost, logport)
+        # Remove CACHE file
+        os.remove('CACHE')
 
     def rewrite_log(self, logfile, logdata, count):
         with open(logfile, 'w') as writelog:
@@ -48,11 +77,10 @@ class LogProcessing(object):
         return
 
     def get_timestamp(self):
-        returnValue = {}
-        returnValue['UTC'] = datetime.datetime.now(tz=pytz.utc)
-        returnValue['epoch'] = returnValue['UTC'].timestamp()
+        timestamp = datetime.datetime.now(tz=pytz.utc)
+        timestamp = timestamp.strftime("%Y-%m-%dT%H:%M:%S") + ".%03d" % (timestamp.microsecond / 1000) + "Z"
 
-        return returnValue
+        return timestamp
 
     def set_startvalues(self):
         logdata = {}
@@ -109,7 +137,11 @@ class LogProcessing(object):
             logdata['maxpacketlost'] = 0
 
         #timenow = datetime.datetime.now(tz=pytz.utc)
-        logdata['timestamp'] = str(datetime.datetime.now(tz=pytz.utc))
+
+
+        logdata['@timestamp'] = self.get_timestamp()
+
+
 
         return logdata
 
