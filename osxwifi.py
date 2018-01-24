@@ -61,3 +61,16 @@ class WifiStatus(object):
 
     def get_serviceactive(self):
         return self.interface.serviceActive()
+
+    def get_current_information(self, logdata):
+
+        logdata['wireless'] = {}
+
+        logdata['wireless']['BSSID'] = str(self.get_bssid())
+        logdata['wireless']['SSID'] = str(self.get_ssid())
+        logdata['wireless']['noise'] = self.get_aggregatenoise()
+        logdata['wireless']['RSSI'] = self.get_rssi()
+        logdata['wireless']['channel'] = self.get_channel()
+        logdata['wireless']['transmitrate'] = self.get_transmitrate()
+
+        return logdata

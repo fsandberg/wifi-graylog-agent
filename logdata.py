@@ -3,6 +3,7 @@ from connectivity import ConnectionCheck
 from logstash import LogstashConnector
 from osxwifi import WifiStatus
 from pathlib import Path
+from functools import reduce
 import os
 import json
 import datetime
@@ -83,6 +84,18 @@ class LogProcessing(object):
         return timestamp
 
     def set_startvalues(self):
+        global tempBSSID
+        global tempRSSI
+        global tempChannel
+        global tempPacketLossTotal
+        global tempPacketLossMax
+
+        tempBSSID = None
+        tempRSSI = None
+        tempChannel = None
+        tempPacketLossTotal = 0
+        tempPacketLossMax = 0
+
         logdata = {}
         logdata['maxpacketlost'] = 0
         logdata['sumpacketlost'] = 0
@@ -144,6 +157,80 @@ class LogProcessing(object):
 
 
         return logdata
+
+    def keys_exists(self, element, *keys):
+        '''
+        Check if *keys (nested) exists in `element` (dict).
+        '''
+        if type(element) is not dict:
+            raise AttributeError('keys_exists() expects dict as first argument.')
+        if len(keys) == 0:
+            raise AttributeError('keys_exists() expects at least two arguments, one given.')
+
+        _element = element
+        for key in keys:
+            try:
+                _element = _element[key]
+            except KeyError:
+                return False
+        return True
+
+    def deep_get(self, dictionary, keys, default=None):
+
+        return reduce(lambda d, key: d.get(key, default) if isinstance(d, dict) else default, keys.split("."), dictionary)
+
+    def analyze_data(self, logdata):
+
+        # -------------------------------------------------------------------------------------
+        # Analyze wifi data
+        # -------------------------------------------------------------------------------------
+        global tempBSSID
+        global tempRSSI
+        global tempChannel
+        global tempPacketLossTotal
+        global tempPacketLossMax
+
+        if tempBSSID == logdata['wireless']['BSSID']:
+            # key exists - loop has been run before
+            # no roam, write BSSID, RSSI and channel to temporary values
+            tempBSSID = logdata['wireless']['BSSID']
+            tempRSSI = logdata['wireless']['RSSI']
+            tempChannel = logdata['wireless']['channel']
+        else:
+            # client has roamed
+            logdata['wireless']['roam'] = {}
+            logdata['wireless']['roam'] = 1
+            logdata['wireless']['roam from BSSID'] = tempBSSID
+            logdata['wireless']['roam from RSSI'] = tempRSSI
+            logdata['wireless']['roam from channel'] = tempChannel
+            logdata['wireless']['roam to BSSID'] = logdata['wireless']['BSSID']
+            logdata['wireless']['roam to RSSI'] = logdata['wireless']['RSSI']
+            logdata['wireless']['roam to channel'] = logdata['wireless']['channel']
+            # reset tempvalues
+            tempBSSID = logdata['wireless']['BSSID']
+            tempRSSI = logdata['wireless']['RSSI']
+            tempChannel = logdata['wireless']['channel']
+
+        # -------------------------------------------------------------------------------------
+        # Analyze connection data
+        # -------------------------------------------------------------------------------------
+        # Check packetloss
+        if logdata['connection']['packetlosscount'] == 1:
+            # Packet to testserver is lost, increment or create total counters
+            tempPacketLossTotal = tempPacketLossTotal + 1
+            logdata['connection']['total lost'] = tempPacketLossTotal
+        else:
+            # No packetloss, reset total counter to 0
+            tempPacketLossTotal = 0
+
+        # Check max packetloss
+        if tempPacketLossMax < tempPacketLossTotal:
+            tempPacketLossMax = tempPacketLossTotal
+            logdata['connection']['max lost'] = tempPacketLossMax
+
+
+
+        return
 
     def print_log(self, status):
         print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT BSSID:', status['BSSID'], '', 'LAST BSSID:', status['last_BSSID']))

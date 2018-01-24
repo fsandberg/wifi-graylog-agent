@@ -50,58 +50,35 @@ LogData = LogHandler.set_startvalues()
 try:
 
     while True:
-        LogData['BSSID'] = str(Wifi.get_bssid())
-        LogData['SSID'] = str(Wifi.get_ssid())
-        LogData['noise'] = Wifi.get_aggregatenoise()
-        LogData['RSSI'] = Wifi.get_rssi()
-        LogData['channel'] = Wifi.get_channel()
-        LogData['transmitrate'] = Wifi.get_transmitrate()
 
-        ConnectionStatus = Connection.get_connection(TestServer, TestPort, TimeOut)
+        # Get current wifi info from API - adds wireless dict to LogData dict
+        Wifi.get_current_information(LogData)
+        # Run connection tests - adds connection dict to LogData dict
+        Connection.get_connection_status(LogData, TestServer, TestPort, TimeOut)
+        # Analyze collected data and calculate new information - adds to LogData dict
+        LogHandler.analyze_data(LogData)
 
-        LogData['packetloss'] = ConnectionStatus['packetloss']
-        LogData['RTT'] = ConnectionStatus['RTT']
 
-        # Check roaming and last BSSID
-        if LastBSSIValue == '':
-            # First run, initiate parameter
+#       LogData['BSSID'] = str(Wifi.get_bssid())
+#       LogData['SSID'] = str(Wifi.get_ssid())
+#       LogData['noise'] = Wifi.get_aggregatenoise()
+#       LogData['RSSI'] = Wifi.get_rssi()
+#       LogData['channel'] = Wifi.get_channel()
+#       LogData['transmitrate'] = Wifi.get_transmitrate()
 
-            LogData['roam'] = 'FALSE'
-            LogData['last BSSID'] = '--'
-            LogData['last roam at'] = '--'
-            LastRoamValue = LogData['RSSI']
-            LastBSSIValue = LogData['BSSID']
-        elif LogData['BSSID'] == 'None':
-            # Disconnected, keep last known BSSID
-            LogData['roam'] = 'FALSE'
-            LastRoamValue = LogData['RSSI']
-            LastBSSIValue = LogData['BSSID']
-        elif LogData['BSSID'] == LastBSSIValue:
-            # Same BSSID as before, no roaming
-            if LogData['roam'] == 'TRUE':
-                # First loop after a roam
-                LogData['last roam to'] = LogData['RSSI']
-                LogData['roam'] = 'FALSE'
-            LastRoamValue = LogData['RSSI']
-            LastBSSIValue = LogData['BSSID']
-        elif LogData['BSSID'] != LastBSSIValue:
-            # BSSID does not match previous, client has roamed
-            LogData['roam'] = 'TRUE'
-            LogData['last_BSSID'] = LastBSSIValue
-            LogData['last_roam_at'] = LastRoamValue
-            LogData['last_roam_to'] = LogData['RSSI']
-            LogData['roam_time'] = str(datetime.datetime.now(tz=pytz.utc).strftime('%H:%M:%S.%f'))
-            # Reset BSSID and RSSI
-            LastBSSIValue = LogData['BSSID']
-            LastRoamValue = LogData['RSSI']
+        #ConnectionStatus = Connection.get_connection(TestServer, TestPort, TimeOut)
 
-        LogHandler.process_logdata(LogData)
+        #LogData['packetloss'] = ConnectionStatus['packetloss']
+        #LogData['RTT'] = ConnectionStatus['RTT']
 
-        if PrintToConsole.upper() == 'TRUE':
-            LogHandler.print_log(LogData)
 
-        if SendToLogHost.upper() == 'TRUE':
-            LogHandler.send_log(LogData, LogHost, LogPort)
+        print(LogData)
+
+ #       if PrintToConsole.upper() == 'TRUE':
+ #           LogHandler.print_log(LogData)
+#
+#        if SendToLogHost.upper() == 'TRUE':
+#            LogHandler.send_log(LogData, LogHost, LogPort)
 
         time.sleep(SleepTimer)
 
