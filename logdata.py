@@ -96,26 +96,31 @@ class LogProcessing(object):
         tempPacketLossTotal = 0
         tempPacketLossMax = 0
 
+        # initiate dicts
         logdata = {}
-        logdata['maxpacketlost'] = 0
-        logdata['sumpacketlost'] = 0
-        logdata['startday'] = datetime.datetime.now().strftime('%Y-%m-%d')
+        logdata['wireless'] = {}
+        logdata['connection'] = {}
+        # set default dict values
+        logdata['@message'] = ''
+        logdata['startday'] = self.get_day()
+        logdata['wireless']['roam from RSSI'] = 0
 
-        logdata['last_BSSID'] = '--'
-        logdata['last_roam_at'] = '--'
-        logdata['last_roam_to'] = '--'
-        logdata['roam_time'] = '--'
+        #logdata['last_BSSID'] = '--'
+        #logdata['last_roam_at'] = '--'
+        #logdata['last_roam_to'] = '--'
+        #logdata['roam_time'] = '--'
         #logdata['clientmac'] = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
-        logdata['clientmac'] = WifiStatus().get_hardwareaddress()
+
         #gateways = netifaces.gateways()
         #logdata['defaultgateway'] = gateways['default']
 
         return logdata
 
-    def get_time(self):
-        time_now = datetime.datetime.now().strftime('%H:%M:%S')
+    def get_day(self):
+        return datetime.datetime.now().strftime('%Y-%m-%d')
 
-        return time_now
+    def get_time(self):
+        return datetime.datetime.now().strftime('%H:%m:%S')
 
     def process_logdata(self, logdata):
         logdata['short_message'] = ''
@@ -151,35 +156,14 @@ class LogProcessing(object):
 
         #timenow = datetime.datetime.now(tz=pytz.utc)
 
-
         logdata['@timestamp'] = self.get_timestamp()
-
-
 
         return logdata
 
-    def keys_exists(self, element, *keys):
-        '''
-        Check if *keys (nested) exists in `element` (dict).
-        '''
-        if type(element) is not dict:
-            raise AttributeError('keys_exists() expects dict as first argument.')
-        if len(keys) == 0:
-            raise AttributeError('keys_exists() expects at least two arguments, one given.')
-
-        _element = element
-        for key in keys:
-            try:
-                _element = _element[key]
-            except KeyError:
-                return False
-        return True
-
-    def deep_get(self, dictionary, keys, default=None):
-
-        return reduce(lambda d, key: d.get(key, default) if isinstance(d, dict) else default, keys.split("."), dictionary)
-
     def analyze_data(self, logdata):
+
+        # set timestamp
+        logdata['@timestamp'] = self.get_timestamp()
 
         # -------------------------------------------------------------------------------------
         # Analyze wifi data
@@ -190,12 +174,29 @@ class LogProcessing(object):
         global tempPacketLossTotal
         global tempPacketLossMax
 
+        # fixup value from None to 0
+        if tempRSSI is None:
+            tempRSSI = 0
+        if tempChannel is None:
+            tempChannel = 0
+
+        # fixup value from None to 'None'
+        if tempBSSID is None:
+            tempBSSID = 'None'
+
+        # reset tempPacketLossMax every new day
+        if self.get_day() != logdata['startday']:
+            tempPacketLossMax = 0
+
         if tempBSSID == logdata['wireless']['BSSID']:
-            # key exists - loop has been run before
             # no roam, write BSSID, RSSI and channel to temporary values
             tempBSSID = logdata['wireless']['BSSID']
             tempRSSI = logdata['wireless']['RSSI']
             tempChannel = logdata['wireless']['channel']
+            logdata['wireless']['roam'] = 0
+
+            # normal packet, set message to nothing
+            logdata['@message'] = ''
         else:
             # client has roamed
             logdata['wireless']['roam'] = {}
@@ -206,6 +207,13 @@ class LogProcessing(object):
             logdata['wireless']['roam to BSSID'] = logdata['wireless']['BSSID']
             logdata['wireless']['roam to RSSI'] = logdata['wireless']['RSSI']
             logdata['wireless']['roam to channel'] = logdata['wireless']['channel']
+            logdata['wireless']['roam timestamp'] = self.get_time()
+            logdata['@message'] = 'Client roamed from' \
+                + ' ' + str(logdata['wireless']['roam from BSSID'])\
+                + ' (' + str(logdata['wireless']['roam from RSSI']) + ')' \
+                + ' to ' + str(logdata['wireless']['roam to BSSID']) \
+                + ' (' + str(logdata['wireless']['roam to RSSI']) + ')'
+
             # reset tempvalues
             tempBSSID = logdata['wireless']['BSSID']
             tempRSSI = logdata['wireless']['RSSI']
@@ -215,45 +223,66 @@ class LogProcessing(object):
         # Analyze connection data
         # -------------------------------------------------------------------------------------
         # Check packetloss
-        if logdata['connection']['packetlosscount'] == 1:
+        if logdata['connection']['packetloss'] == 1:
             # Packet to testserver is lost, increment or create total counters
             tempPacketLossTotal = tempPacketLossTotal + 1
             logdata['connection']['total lost'] = tempPacketLossTotal
+            # If @message is empty, set new message
+            if logdata['@message'] != '':
+                logdata['@message'] = 'Packet lost to testserver, total ' + str(tempPacketLossTotal) \
+                + ' consecutive packet lost.'
         else:
-            # No packetloss, reset total counter to 0
+            # No packetloss, reset total counter back to 0
             tempPacketLossTotal = 0
+            logdata['connection']['total lost'] = tempPacketLossTotal
+            logdata['connection']['max lost'] = tempPacketLossMax
 
         # Check max packetloss
         if tempPacketLossMax < tempPacketLossTotal:
             tempPacketLossMax = tempPacketLossTotal
             logdata['connection']['max lost'] = tempPacketLossMax
 
-
-
         return
 
-    def print_log(self, status):
-        print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT BSSID:', status['BSSID'], '', 'LAST BSSID:', status['last_BSSID']))
-        print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('SSID:', status['SSID'], '', 'ROAM TIME:', status['roam_time']))
+    def print_log(self, logdata):
+        global tempBSSID
+        global tempRSSI
+        global tempChannel
+        global tempPacketLossTotal
+        global tempPacketLossMax
 
-        if status['roam'] == 'TRUE':
-            print('{:<15} {:>20} {:>10} {:<15} {:>25} {:>3}'.format('CURRENT RSSI:', status['RSSI'], '', 'ROAM:\033[92m', status['roam'], '\033[0m'))
+        print ('{:<15} {:>20} {:>10} {:<15} {:>20}'.format
+            ('Current BSSID:', logdata['wireless']['BSSID'], '', 'Last BSSID:', str(logdata['wireless']['roam from BSSID'])))
+        print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format
+            ('SSID:', logdata['wireless']['SSID'], '', 'Last roam time:', logdata['wireless']['roam timestamp']))
+
+        if logdata['wireless']['roam'] == 1:
+            print('{:<15} {:>20} {:>10} {:<15} {:>25} {:>3}'.format
+                      ('Current RSSI:', logdata['wireless']['RSSI'], '', 'Roam:\033[92m', 'True', '\033[0m'))
         else:
-            print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('CURRENT RSSI:', status['RSSI'], '', 'ROAM NOW:', status['roam']))
-        print('{:<15} {:>19} {:>10} {:<15} {:>17}'.format('CURRENT CHANNEL:', status['channel'], '', 'LAST ROAM AT RSSI:', status['last_roam_at']))
-        print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format('CURRENT NOISE:', status['noise'], '', 'LAST ROAM TO RSSI:', status['last_roam_to']))
+            print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format
+                  ('Current RSSI:', logdata['wireless']['RSSI'], '', 'Roam:', 'False'))
+        print('{:<15} {:>19} {:>10} {:<15} {:>15}'.format
+              ('Current channel:', logdata['wireless']['channel'], '', 'Last roam from RSSI:', str(logdata['wireless']['roam from RSSI'])))
+        print('{:<15} {:>20} {:>10} {:<15} {:>17}'.format
+              ('Current noise:', logdata['wireless']['noise'], '', 'Last roam to RSSI:', str(logdata['wireless']['roam to RSSI'])))
 
-        if status['packetloss'] == 'TRUE':
-            print('{:<15} {:>20} {:>10} {:<15} {:>23} {:>3}'.format('TX RATE:', status['transmitrate'], '', 'PACKET LOST:\033[91m', status['packetloss'], '\033[0m'))
-            print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', status['maxpacketlost']))
+        if logdata['connection']['packetloss'] == 1:
+            print('{:<15} {:>20} {:>10} {:<15} {:>16} {:>3}'.format
+                  ('TX rate:', logdata['wireless']['transmitrate'], '', 'Total lost packets:\033[91m', logdata['connection']['total lost'], '\033[0m'))
+            print('{:<15} {:>20} {:>10} {:<15} {:>9}'.format
+                  ('RTT server:', logdata['connection']['RTT'], '', 'Max packets lost last 24H:', logdata['connection']['max lost']))
         else:
-            print('{:<15} {:>20} {:>10} {:<15} {:>20}'.format('TX RATE:', status['transmitrate'], '', 'PACKET LOST:', status['packetloss']))
-            print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format('RTT:', status['RTT'], '', 'MAX PKT LOST (24H):', status['maxpacketlost']))
+            print('{:<15} {:>20} {:>10} {:<15} {:>16}'.format
+                  ('TX rate:', logdata['wireless']['transmitrate'], '', 'Total lost packets:', logdata['connection']['total lost']))
+            print('{:<15} {:>20} {:>10} {:<15} {:>9}'.format
+                  ('RTT server:', logdata['connection']['RTT'], '', 'Max packets lost last 24H:', logdata['connection']['max lost']))
+        print('{:<15} {:>20} {:>10} {:<15} {:>12}'.format
+        ('RTT gateway:', logdata['connection']['RTT gw'], '', 'Packet lost to gateway:', logdata['connection']['gw packetloss']))
 
-        # print(status['gateway'])
         print('------------------------------------------------------------------------------------')
 
-        return status
+        return
 
 
 

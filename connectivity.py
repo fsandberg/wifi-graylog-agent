@@ -1,9 +1,15 @@
 from tcpping import tcpping
 import time
 import sys
+import netifaces
+from platform import system as system_name
+from os import system as system_call
+import re
+import subprocess
+
 timer = time.clock if sys.platform == 'win32' else time.time
 
-start = timer()
+#start = timer()
 
 
 
@@ -13,6 +19,44 @@ class ConnectionCheck(object):
         result = tcpping(host, port, timeout)
 
         return result
+
+    def ping_gateway(self, logdata):
+        try:
+            defaultgateway = netifaces.gateways()['default'][netifaces.AF_INET][0]
+            print('GATEWAY: ' + defaultgateway)
+            if defaultgateway == '':
+                logdata['connection']['gw packetloss'] = 1
+                logdata['connection']['RTT gw'] = 0
+                return False
+            if system_name().lower() == 'windows':
+                ping = subprocess.Popen(
+                    ["ping", '-n', '1', '-w', '1', defaultgateway],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+            else:
+                ping = subprocess.Popen(
+                    ['ping', '-c', '1', '-W', '1', defaultgateway],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+            out, error = ping.communicate()
+            try:
+                matcher = re.compile("round-trip min/avg/max/stddev = (\d+.\d+)/(\d+.\d+)/(\d+.\d+)/(\d+.\d+)")
+                response = (matcher.search(out.decode('utf-8')).groups())
+            except:
+                logdata['connection']['gw packetloss'] = 1
+                logdata['connection']['RTT gw'] = 0
+                return False
+            # get min value (1 = avg, 2 = max)
+            rtt = response[0]
+            logdata['connection']['gw packetloss'] = 0
+            logdata['connection']['RTT gw'] = rtt
+        except:
+            logdata['connection']['gw packetloss'] = 1
+            logdata['connection']['RTT gw'] = 0
+            return False
+        return True
 
     def get_connection(self, host, port, timeout):
         startTime = timer()
@@ -34,7 +78,6 @@ class ConnectionCheck(object):
             return returnValue
 
     def get_connection_status(self, logdata, host, port, timeout):
-        logdata['connection'] = {}
         startTime = timer()
         result = tcpping(host, port, timeout)
         stopTime = timer()
@@ -43,11 +86,11 @@ class ConnectionCheck(object):
 
         if result:
             # Packetloss = False
-            logdata['connection']['packetlosscount'] = 0
+            logdata['connection']['packetloss'] = 0
             logdata['connection']['RTT'] = rtt
         else:
             # Packetloss = True
-            logdata['connection']['packetlosscount'] = 1
+            logdata['connection']['packetloss'] = 1
             logdata['connection']['RTT'] = 0
 
         return

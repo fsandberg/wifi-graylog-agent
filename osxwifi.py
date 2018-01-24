@@ -64,13 +64,19 @@ class WifiStatus(object):
 
     def get_current_information(self, logdata):
 
-        logdata['wireless'] = {}
+        #logdata['wireless'] = {}
 
         logdata['wireless']['BSSID'] = str(self.get_bssid())
         logdata['wireless']['SSID'] = str(self.get_ssid())
         logdata['wireless']['noise'] = self.get_aggregatenoise()
         logdata['wireless']['RSSI'] = self.get_rssi()
         logdata['wireless']['channel'] = self.get_channel()
+        # set client band
+        if logdata['wireless']['channel'] > 13:
+            logdata['wireless']['band'] = '5 Ghz'
+        else:
+            logdata['wireless']['band'] = '2.4 Ghz'
         logdata['wireless']['transmitrate'] = self.get_transmitrate()
+        logdata['clientmac'] = WifiStatus().get_hardwareaddress()
 
         return logdata

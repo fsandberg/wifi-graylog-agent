@@ -9,16 +9,8 @@ class LogstashConnector:
 
     def log_tcp(self, logdata, loghost, port):
         try:
-            # GELF "Header"
 
-            #logdata['@timestamp'] = logdata['timestamp']
             logdata['@source'] = 'logstash'
-            logdata['@message'] = logdata['short_message']
-            #logdata['short_message']
-
-            # logdata['host'] = gethostname()
-            # logdata['facility'] = 'QLS wireless agent'
-            # logdata['clienthostname'] = gethostname()
 
             tcp_socket = socket(AF_INET, SOCK_STREAM)
             tcp_socket.settimeout(.2)

@@ -42,8 +42,8 @@ except configparser.Error:
     print('\033[91mERROR READING CONFIGURATION FILE\033[0m')
     sys.exit(0)
 
-LastRoamValue = 0
-LastBSSIValue = ''
+# LastRoamValue = 0
+# LastBSSIValue = ''
 
 LogData = LogHandler.set_startvalues()
 
@@ -51,11 +51,12 @@ try:
 
     while True:
 
-        # Get current wifi info from API - adds wireless dict to LogData dict
+        # Get current wifi info from API - populates wireless 'sub-dict'
         Wifi.get_current_information(LogData)
-        # Run connection tests - adds connection dict to LogData dict
+        # Run connection tests - populates connection 'sub-dict'
         Connection.get_connection_status(LogData, TestServer, TestPort, TimeOut)
-        # Analyze collected data and calculate new information - adds to LogData dict
+        Connection.ping_gateway(LogData)
+        # Analyze collected data and calculate new information - populates all dicts
         LogHandler.analyze_data(LogData)
 
 
@@ -72,13 +73,13 @@ try:
         #LogData['RTT'] = ConnectionStatus['RTT']
 
 
-        print(LogData)
+        #print(LogData)
 
- #       if PrintToConsole.upper() == 'TRUE':
- #           LogHandler.print_log(LogData)
-#
-#        if SendToLogHost.upper() == 'TRUE':
-#            LogHandler.send_log(LogData, LogHost, LogPort)
+        if PrintToConsole.upper() == 'TRUE':
+            LogHandler.print_log(LogData)
+
+        if SendToLogHost.upper() == 'TRUE':
+            LogHandler.send_log(LogData, LogHost, LogPort)
 
         time.sleep(SleepTimer)
 
