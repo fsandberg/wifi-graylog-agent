@@ -230,7 +230,7 @@ class LogProcessing(object):
             # If @message is empty, set new message
             if logdata['@message'] != '':
                 logdata['@message'] = 'Packet lost to testserver, total ' + str(tempPacketLossTotal) \
-                + ' consecutive packet lost.'
+                + ' consecutive packets lost.'
         else:
             # No packetloss, reset total counter back to 0
             tempPacketLossTotal = 0

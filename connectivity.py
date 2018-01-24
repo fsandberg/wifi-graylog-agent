@@ -23,7 +23,6 @@ class ConnectionCheck(object):
     def ping_gateway(self, logdata):
         try:
             defaultgateway = netifaces.gateways()['default'][netifaces.AF_INET][0]
-            print('GATEWAY: ' + defaultgateway)
             if defaultgateway == '':
                 logdata['connection']['gw packetloss'] = 1
                 logdata['connection']['RTT gw'] = 0
@@ -49,7 +48,7 @@ class ConnectionCheck(object):
                 logdata['connection']['RTT gw'] = 0
                 return False
             # get min value (1 = avg, 2 = max)
-            rtt = response[0]
+            rtt = float(response[0])
             logdata['connection']['gw packetloss'] = 0
             logdata['connection']['RTT gw'] = rtt
         except:
