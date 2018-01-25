@@ -77,6 +77,9 @@ class WifiStatus(object):
         else:
             logdata['wireless']['band'] = '2.4 Ghz'
         logdata['wireless']['transmitrate'] = self.get_transmitrate()
-        logdata['clientmac'] = WifiStatus().get_hardwareaddress()
+        try:
+            logdata['clientmac'] = WifiStatus().get_hardwareaddress()
+        except:
+            logdata['clientmac'] = '00:00:00:00:00:00'
 
         return logdata

@@ -7,14 +7,12 @@ class LogstashConnector:
     def __init__(self):
         pass
 
-    def log_tcp(self, logdata, loghost, port):
+    def log_tcp(self, logdata, loghost, logport, logtimeout):
         try:
-
             logdata['@source'] = 'logstash'
-
             tcp_socket = socket(AF_INET, SOCK_STREAM)
-            tcp_socket.settimeout(.2)
-            tcp_socket.connect((loghost, int(port)))
+            tcp_socket.settimeout(logtimeout)
+            tcp_socket.connect((loghost, int(logport)))
             logdata['clientip'] = tcp_socket.getsockname()[0]
             json_logdata = json.dumps(logdata)
             json_logdata = json_logdata + '\n'
@@ -22,17 +20,29 @@ class LogstashConnector:
 
             tcp_socket.send(json_logdata)
 
-        except timeout:
-            print('\033[91mTIMEOUT CONNECTING TO LOGSERVER\033[0m')
+        except timeout as e:
+            #print('\033[91mTimeout connecting to logserver\033[0m')
+            #print(e)
+            #tcp_socket.close()
             return False
 
-        except error:
-            print('\033[91mNETWORK UNREACHABLE / CLIENT DISCONNECTED\033[0m')
+        except error as e:
+            #print('\033[91mNetwork unreachable / client disconnected\033[0m')
+            #print(e)
+            #tcp_socket.close()
             return False
 
-        finally:
+        except UnboundLocalError as e:
+            #print('Other error occured...')
+            #tcp_socket.close()
+            return False
+        except:
+            #tcp_socket.close()
+            return False
+        try:
             tcp_socket.close()
-
+        except:
+            pass
         return True
 
 

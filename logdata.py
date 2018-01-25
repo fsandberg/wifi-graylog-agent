@@ -16,65 +16,46 @@ import threading
 
 class LogProcessing(object):
 
-    def send_log_old(self, logfile, loghost, logport):
-        with open(logfile, 'r') as readlog:
-
-            line_content = readlog.read().splitlines(True)
-
-            if ConnectionCheck().check_connection(loghost, logport, 0.200):
-                counter = 0
-                for lines in line_content:
-                    counter = counter + 1
-                    log_data_json = json.loads(lines)
-                    #GelfConnector().log_tcp(log_data_json, loghost, logport)
-                    LogstashConnector().log_tcp(log_data_json, loghost, logport)
-                threading._start_new_thread(LogProcessing.rewrite_log, (self, logfile, line_content, counter))
-            else:
-                print('\033[91mNO CONNECTION TO LOGSERVER ' + loghost + ':' + logport + '\033[0m')
-
-        return
-
-    def send_log(self, logdata, loghost, logport):
-
-        # Check connection to logserver
-        if ConnectionCheck().check_connection(loghost, logport, 0.200):
+    def send_log(self, logdata, loghost, logport, logtimeout):
+        # Try to send log
+        if LogstashConnector().log_tcp(logdata, loghost, logport, logtimeout):
+            print('\033[92mData sent to logserver\033[0m')
             # Check if cache file exists
             cachefile = Path('CACHE')
             if cachefile.is_file():
                 # Start a new thread and send cached log
-                threading._start_new_thread(self.send_cache, (loghost, logport))
+                print('\033[93mCachefile exists, sending\033[0m')
+                #self.send_cache(loghost, logport, logtimeout)
 
-            # Send dict to logstash function
-            LogstashConnector().log_tcp(logdata, loghost, logport)
-
+                threading._start_new_thread(self.send_cache, (loghost, logport, logtimeout))
         else:
-            # Write logs to cache file
+            # Connection to logserver failed, write logdata to cache file
+            print('\033[91mConnection to logserver failed, writing data to cache\033[0m')
             self.write_log('CACHE', logdata)
-            print('\033[91mNo connection to logserver ' + loghost + ':' + logport + '\033[0m')
-
         return
 
-    def send_cache(self, loghost, logport):
+    def send_cache(self, loghost, logport, logtimeout):
         # Loop through CACHE file and send to logstash
         with open('CACHE', 'r') as cache:
             for lines in cache:
                 log_data_json = json.loads(lines)
-                LogstashConnector().log_tcp(log_data_json, loghost, logport)
-        # Remove CACHE file
+                LogstashConnector().log_tcp(log_data_json, loghost, logport, logtimeout)
+        cache.close()
+        # Delete CACHE file
         os.remove('CACHE')
 
-    def rewrite_log(self, logfile, logdata, count):
-        with open(logfile, 'w') as writelog:
-            writelog.writelines(logdata[count:])
-
-        return
-
     def write_log(self, logfile, logdata):
-        with open(logfile, 'a') as appendlog:
-            logdata = json.dumps(logdata)
-            appendlog.writelines(logdata)
-            appendlog.writelines('\n')
-
+        try:
+            with open(logfile, 'a') as appendlog:
+                logdata = json.dumps(logdata)
+                appendlog.writelines(logdata)
+                appendlog.writelines('\n')
+        
+        except OSError as e:
+            print(e)
+            pass
+        except:
+            pass
         return
 
     def get_timestamp(self):
