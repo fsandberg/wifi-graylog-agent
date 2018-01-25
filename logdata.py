@@ -18,7 +18,7 @@ class LogProcessing(object):
 
     def send_log(self, logdata, loghost, logport, logtimeout):
         # Try to send log
-        if LogstashConnector().log_tcp(logdata, loghost, logport, logtimeout):
+        if threading._start_new_thread(LogstashConnector().log_tcp, (logdata, loghost, logport, logtimeout)):
             print('\033[92mData sent to logserver\033[0m')
             # Check if cache file exists
             cachefile = Path('CACHE')
